@@ -136,20 +136,18 @@ def top_categorias_por_pico(df: pd.DataFrame, anos_disponiveis: list[str], colun
     return pd.Series(picos).sort_values(ascending=False).head(n).index.tolist()
 
 
-def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotulo_coluna: str,
-                            top8: list[str], marcas_cor: list[str], mapa_cor: dict, periodo_global: str,
-                            ancora: str, campo: str, rotulo_singular: str, artigo: str, rotulo_plural: str,
-                            duas_pontas: bool, chave_download: str, altura: int = 380,
-                            rotulo_outros: str | None = None) -> None:
-    """Motor generico por tras de Faixa/Classe/Tarifa/Distribuidora -- mesma mecanica
-    (barra empilhada por marca + tabela de especialistas) sobre uma coluna categorica
-    diferente. Espelha renderCategoria() no dashboard_template.html; ver lá o porque
-    de rotulo_outros ficar fora do superlativo "maior categoria" (e um balde
-    residual de dezenas de entidades, nao uma categoria real -- so se aplica a
-    distribuidora aqui)."""
+def calcular_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotulo_coluna: str,
+                        top8: list[str], marcas_cor: list[str], periodo_global: str, ancora: str,
+                        rotulo_singular: str, artigo: str, rotulo_plural: str, duas_pontas: bool,
+                        rotulo_outros: str | None = None) -> dict | None:
+    """Parte de calculo de render_secao_categoria: groupby, tabela de especialistas e o
+    texto da legenda -- nada de Streamlit aqui, so dados prontos pra desenhar. Retorna
+    None quando nao ha instalacao identificada no recorte (o caller mostra a legenda
+    vazia). Ver render_secao_categoria() pro motor generico Faixa/Classe/Tarifa/
+    Distribuidora, e renderCategoria() em dashboard_template.html pro porque de
+    rotulo_outros ficar fora do superlativo "maior categoria"."""
     if not ordem or subset.empty:
-        st.caption(f"Nenhuma instalação identificada {em_periodo(periodo_global, ancora)}.")
-        return
+        return None
 
     subset = subset.copy()
     subset["_marca_grafico"] = lm.marca_para_grafico(subset["marca"], top8)
@@ -160,8 +158,7 @@ def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], 
         mw=("soma_kw", lambda s: s.sum() / 1000), inst=("qtd_instalacoes", "sum")).reindex(ordem, fill_value=0.0)
     total_geral = perfil["mw"].sum()
     if total_geral <= 0:
-        st.caption(f"Nenhuma instalação identificada {em_periodo(periodo_global, ancora)}.")
-        return
+        return None
 
     reais = subset[~subset["marca"].isin([OUTROS, NAO_INFORMADO])]
     total_mercado = subset["soma_kw"].sum()
@@ -184,38 +181,54 @@ def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], 
 
     perfil_p_maior = perfil.drop(index=[rotulo_outros], errors="ignore") if rotulo_outros else perfil
     if perfil_p_maior["mw"].sum() <= 0:
-        st.caption(f"Nenhuma instalação identificada {em_periodo(periodo_global, ancora)}.")
-        return
+        return None
     maior = perfil_p_maior["mw"].idxmax()
     lider_maior = next((l for l in linhas_esp if l[rotulo_coluna] == maior), None)
     inst_fmt = f"{int(perfil.loc[maior, 'inst']):,}".replace(",", ".")
-    txt = (f"**{maior}** é {artigo} maior {rotulo_singular} {em_periodo(periodo_global, ancora)}, com "
-           f"{perfil.loc[maior, 'mw']:.1f} MW ({perfil.loc[maior, 'mw']/total_geral*100:.0f}% da potência "
-           f"em {inst_fmt} instalações)")
+    texto = (f"**{maior}** é {artigo} maior {rotulo_singular} {em_periodo(periodo_global, ancora)}, com "
+             f"{perfil.loc[maior, 'mw']:.1f} MW ({perfil.loc[maior, 'mw']/total_geral*100:.0f}% da potência "
+             f"em {inst_fmt} instalações)")
     if lider_maior:
-        txt += f", e **{lider_maior['Marca']}** é a marca mais presente lá ({lider_maior['Share na categoria %']:.1f}%"
+        texto += f", e **{lider_maior['Marca']}** é a marca mais presente lá ({lider_maior['Share na categoria %']:.1f}%"
         if lider_maior["Índice"]:
-            txt += f", {lider_maior['Índice']:.1f}× a participação geral dela"
-        txt += ")"
-    txt += "."
+            texto += f", {lider_maior['Índice']:.1f}× a participação geral dela"
+        texto += ")"
+    texto += "."
     if duas_pontas and len(ordem) > 1:
         candidatos_topo = [c for c in ordem if c != rotulo_outros]
         topo = candidatos_topo[-1] if candidatos_topo else None
         lider_topo = next((l for l in linhas_esp if l[rotulo_coluna] == topo), None) if topo else None
         if lider_topo and lider_topo["Marca"] != lider_maior["Marca"]:
-            txt += (f" Já em **{topo}** quem lidera é **{lider_topo['Marca']}** com {lider_topo['Share na categoria %']:.1f}%"
-                    + (f" ({lider_topo['Índice']:.1f}× a participação que ela tem no mercado como um todo)"
-                       if lider_topo["Índice"] else "")
-                    + f". {rotulo_plural} diferentes, líderes diferentes.")
-    st.caption(txt)
+            texto += (f" Já em **{topo}** quem lidera é **{lider_topo['Marca']}** com {lider_topo['Share na categoria %']:.1f}%"
+                      + (f" ({lider_topo['Índice']:.1f}× a participação que ela tem no mercado como um todo)"
+                         if lider_topo["Índice"] else "")
+                      + f". {rotulo_plural} diferentes, líderes diferentes.")
+
+    return {"tab": tab, "texto": texto, "especialistas": pd.DataFrame(linhas_esp)}
+
+
+def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotulo_coluna: str,
+                            top8: list[str], marcas_cor: list[str], mapa_cor: dict, periodo_global: str,
+                            ancora: str, campo: str, rotulo_singular: str, artigo: str, rotulo_plural: str,
+                            duas_pontas: bool, chave_download: str, altura: int = 380,
+                            rotulo_outros: str | None = None) -> None:
+    """Motor generico por tras de Faixa/Classe/Tarifa/Distribuidora -- mesma mecanica
+    (barra empilhada por marca + tabela de especialistas) sobre uma coluna categorica
+    diferente. Ver calcular_categoria() pro calculo; aqui e so Streamlit."""
+    calc = calcular_categoria(subset, coluna, ordem, rotulo_coluna, top8, marcas_cor, periodo_global,
+                               ancora, rotulo_singular, artigo, rotulo_plural, duas_pontas, rotulo_outros)
+    if calc is None:
+        st.caption(f"Nenhuma instalação identificada {em_periodo(periodo_global, ancora)}.")
+        return
+    st.caption(calc["texto"])
 
     fig = px.bar(
-        tab, x=marcas_cor, y=tab.index, orientation="h",
+        calc["tab"], x=marcas_cor, y=calc["tab"].index, orientation="h",
         labels={"value": "MW", "y": rotulo_coluna, "variable": "Marca"}, color_discrete_map=mapa_cor,
     )
     fig.update_traces(hovertemplate="<b>%{fullData.name}</b><br>%{y}: %{x:.2f} MW<extra></extra>")
     fig.update_layout(barmode="stack", height=altura, legend_title="Marca",
-                       yaxis=dict(categoryorder="array", categoryarray=list(tab.index)[::-1]))
+                       yaxis=dict(categoryorder="array", categoryarray=list(calc["tab"].index)[::-1]))
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(
@@ -224,11 +237,10 @@ def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], 
         "3× quer dizer três vezes mais concentrada. Não está restrito às 10 marcas coloridas: especialistas "
         "de nicho aparecem sem esse corte."
     )
-    tabela_esp = pd.DataFrame(linhas_esp)
-    st.dataframe(tabela_esp, use_container_width=True, hide_index=True)
+    st.dataframe(calc["especialistas"], use_container_width=True, hide_index=True)
     st.download_button(
         f"⬇️ Baixar especialistas por {rotulo_singular} (CSV)",
-        tabela_esp.to_csv(index=False).encode("utf-8-sig"),
+        calc["especialistas"].to_csv(index=False).encode("utf-8-sig"),
         file_name=f"especialistas_{chave_download}_{campo}_{periodo_global}.csv",
         mime="text/csv", key=f"dl_{chave_download}",
     )

@@ -1164,8 +1164,7 @@ function renderLeaderboard(){
 // (usada so em faixa, onde "menor instalacao" vs "maior instalacao" e um eixo com
 // sentido de negocio -- pras outras colunas isso seria uma comparacao artificial,
 // entao usam a legenda de uma ponta so).
-function renderCategoria(cfg){
-  var dados = DADOS.campos[estado.campo];
+function calcularCategoria(dados, cfg){
   var marcas = dados.marcas_cor;
   var categorias = dados[cfg.chaveOrdem] || [];
   var periodo = estado.periodoGlobal;
@@ -1180,8 +1179,6 @@ function renderCategoria(cfg){
     return { categoria: c, valores_mw: valores, total_mw: p[0], instalacoes: p[1] };
   });
   var totalGeral = linhas.reduce(function(a, l){ return a + l.total_mw; }, 0);
-
-  renderLegenda(document.getElementById(cfg.idLegenda), marcas);
 
   // "Outras X" e um balde residual (dezenas de entidades somadas), nao uma categoria
   // real -- excluido da escolha de "maior categoria" pra nao coroar o balde so
@@ -1207,7 +1204,17 @@ function renderCategoria(cfg){
       }
     }
   }
-  document.getElementById(cfg.idCaption).textContent = texto;
+
+  return { marcas:marcas, categorias:categorias, linhas:linhas, totalGeral:totalGeral, texto:texto, especialistas:especialistas };
+}
+
+function renderCategoria(cfg){
+  var dados = DADOS.campos[estado.campo];
+  var calc = calcularCategoria(dados, cfg);
+  var marcas = calc.marcas, categorias = calc.categorias, linhas = calc.linhas, especialistas = calc.especialistas;
+
+  renderLegenda(document.getElementById(cfg.idLegenda), marcas);
+  document.getElementById(cfg.idCaption).textContent = calc.texto;
 
   var svg = document.getElementById(cfg.idSvg);
   limpar(svg);
