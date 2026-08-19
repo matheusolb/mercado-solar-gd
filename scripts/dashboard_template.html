@@ -1086,6 +1086,8 @@ function renderLeaderboard(){
 
   var metricaCampo = estado.metrica === "pontos" ? "delta_pontos_percentuais" : "delta_mw_absoluto";
   var linhas = linhasTodas.slice().sort(function(a,b){ return b[metricaCampo] - a[metricaCampo]; });
+  // 6 = LEADERBOARD_TOP_N em app.py -- os dois precisam mostrar o mesmo numero de
+  // marcas pro mesmo filtro, senao "quem ganhou/perdeu" diverge entre os dashboards.
   var top = linhas.slice(0, 6);
   var bottom = linhas.slice(-6).reverse();
   var selecionadas = top.concat(bottom.filter(function(b){ return top.indexOf(b) === -1; }));

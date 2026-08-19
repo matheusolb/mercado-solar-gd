@@ -36,6 +36,11 @@ NAO_INFORMADO = mu.NAO_INFORMADO
 # corte no dashboard HTML, os dois precisam mostrar o mesmo numero de marcas
 # coloridas pra nao divergir (o app.py nao le o payload, recalcula direto do banco).
 TOP_N_COR = 10
+# Quantas marcas aparecem no grafico de "quem ganhou/perdeu espaco" (top N que mais
+# subiram + top N que mais cairam). Tem que bater com o slice(0,6)/slice(-6) em
+# dashboard_template.html -- os dois ja mostraram numeros de marcas diferentes pro
+# mesmo filtro antes de igualar isso.
+LEADERBOARD_TOP_N = 6
 # Paleta categorica (identidade de marca no grafico) validada contra daltonismo/
 # contraste -- fica fixa (ver skill dataviz). Cores de cromo/status abaixo usam
 # a marca Amara (extraida de Em produção/Projects/Painel Base RD.html).
@@ -246,11 +251,19 @@ def tabela_comparacao(df: pd.DataFrame, ano_de: str, ano_ate: str, ancora: str) 
         ki, kf = float(kw_de.get(m, 0.0)), float(kw_ate.get(m, 0.0))
         share_i = ki / total_de * 100 if total_de else 0.0
         share_f = kf / total_ate * 100 if total_ate else 0.0
+        # Mesma logica de calcularLeaderboard() no dashboard HTML: crescimento relativo
+        # so faz sentido com base > 0 (senao e divisao por zero); ki<=0 e kf>0 e uma
+        # marca literalmente nova no periodo, marcada em vez de calcular um % vazio.
+        if ki > 0:
+            cresc_rel, entrante_novo = (kf - ki) / ki * 100, False
+        else:
+            cresc_rel, entrante_novo = None, kf > 0
         linhas.append({
             "marca": m, "mw_inicial": ki / 1000, "mw_final": kf / 1000,
             "share_inicial_pct": share_i, "share_final_pct": share_f,
             "delta_pontos_percentuais": share_f - share_i,
             "delta_mw_absoluto": (kf - ki) / 1000,
+            "crescimento_relativo_pct": cresc_rel, "entrante_novo": entrante_novo,
         })
     return pd.DataFrame(linhas)
 
@@ -505,7 +518,7 @@ st.caption(
 )
 metrica_col = "delta_pontos_percentuais" if metrica == "pontos" else "delta_mw_absoluto"
 lb_ordenada = lb.sort_values(metrica_col, ascending=False)
-selecionadas = pd.concat([lb_ordenada.head(8), lb_ordenada.tail(8)]).drop_duplicates("marca").sort_values(metrica_col)
+selecionadas = pd.concat([lb_ordenada.head(LEADERBOARD_TOP_N), lb_ordenada.tail(LEADERBOARD_TOP_N)]).drop_duplicates("marca").sort_values(metrica_col)
 
 fig_lb = px.bar(
     selecionadas, x=metrica_col, y="marca", orientation="h",
