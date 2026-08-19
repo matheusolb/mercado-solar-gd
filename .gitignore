@@ -1,0 +1,22 @@
+# Dados brutos da ANEEL (~100MB cada, acima do limite de 100MB do GitHub) -- baixe de novo via
+# https://dadosabertos.aneel.gov.br/dataset/relacao-de-empreendimentos-de-geracao-distribuida
+dados/raw/
+
+# Banco consolidado (~365MB) -- gerado por scripts/exportar_sqlite.py, nao precisa ir pro git
+dados/processados/mercado_solar.db
+
+# Agregados full-grain (10-15MB cada, ja e dado derivado -- os _uf.csv ficam, sao pequenos)
+dados/processados/agregado_marca_modulo.parquet
+dados/processados/agregado_marca_inversor.parquet
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Config local do Claude Code (caminhos de maquina, lock de sessao) -- nao e do projeto
+.claude/
+
+# Entrega separada em Power BI -- fora do escopo deste repo (HTML + Streamlit)
+powerbi/
+Mercado-Solar-PowerBI.zip
+scripts/gerar_powerbi.py
