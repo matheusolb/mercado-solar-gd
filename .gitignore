@@ -12,6 +12,7 @@ dados/processados/agregado_marca_inversor.parquet
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+.pytest_cache/
 
 # Config local do Claude Code (caminhos de maquina, lock de sessao) -- nao e do projeto
 .claude/
