@@ -207,7 +207,7 @@ def main():
                 print(f"    {r['exemplo_bruto']!r}: {r['soma_kw']:.0f} kW ({r['pct_do_total_kw']:.2f}%)")
 
         cov = pd.DataFrame({"ano": ano, "kw": df["MdaPotenciaInstalada"], "identificado": identificado_mask})
-        cov = cov[(cov["ano"] >= 2020) & (cov["ano"] <= 2026)]
+        cov = cov[(cov["ano"] >= 2020) & (cov["ano"] <= ano.max())]
         por_ano = cov.groupby("ano").apply(
             lambda g: pd.Series({
                 "total_kw": g["kw"].sum(),
