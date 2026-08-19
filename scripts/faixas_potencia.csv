@@ -1,0 +1,7 @@
+limite_superior_kw,rotulo
+10,≤10 kW
+20,10–20 kW
+75,20–75 kW
+300,75–300 kW
+1000,300 kW–1 MW
+5000,1–5 MW
