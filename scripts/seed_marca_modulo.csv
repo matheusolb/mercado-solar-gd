@@ -1,0 +1,67 @@
+canonical_brand,aliases_exatos,tokens_correspondencia,observacoes
+Canadian Solar,CANADIAN SOLAR|CANADIAN|CANADIANSOLAR,CANADIAN,confirmado no profiling (top 3); token cobre razao social "Canadian Solar Brasil Servicos..."
+JA Solar,JA SOLAR|JASOLAR,,confirmado no profiling (top 1)
+Jinko Solar,JINKO SOLAR|JINKO|JINKOSOLAR,JINKO,confirmado no profiling (top 2)
+BYD,BYD,BYD,confirmado no profiling
+OSDA,OSDA,OSDA,confirmado no profiling
+Risen Energy,RISEN|RISEN ENERGY|RISENENERGY,RISEN,confirmado no profiling
+Sunova,SUNOVA,SUNOVA,confirmado no profiling
+Tsun,TSUN,TSUN,confirmado no profiling
+Astronergy,ASTRONERGY|ASTROENERGY,ASTRONERGY,confirmado no profiling; ASTROENERGY e grafia alternativa/erro comum
+DAH Solar,DAH|DAH SOLAR|DAHSOLAR,DAH,confirmado no profiling
+Intelbras,INTELBRAS,INTELBRAS,confirmado no profiling (tambem fabrica inversor)
+Hanersun,HANERSUN,HANERSUN,confirmado no profiling
+Trina Solar,TRINA SOLAR|TRINA|TRINASOLAR,,conhecido no mercado BR; TRINASOLAR fundido e caso conhecido de falha de token (sem espaco)
+LONGi Solar,LONGI SOLAR|LONGI|LONGISOLAR,LONGI,conhecido no mercado BR
+ZNShine Solar,ZNSHINE|ZNSHINE SOLAR|ZNSHINESOLAR,ZNSHINE,conhecido no mercado BR
+Suntech,SUNTECH|SUNTECH POWER,SUNTECH,conhecido no mercado BR
+Yingli Solar,YINGLI|YINGLI SOLAR,YINGLI,conhecido no mercado BR
+GCL System,GCL|GCL SYSTEM|GCL SI,GCL,conhecido no mercado BR
+Hanwha Q Cells,Q CELLS|QCELLS|HANWHA Q CELLS|HANWHA,QCELLS,conhecido no mercado BR
+Phono Solar,PHONO|PHONO SOLAR|PHONOSOLAR,PHONO,conhecido no mercado BR
+Talesun,TALESUN|TALESUN TSUN,TALESUN,confirmado no profiling (revisao); "(TSUN)" e subgrupo do proprio Talesun
+Boviet Solar,BOVIET|BOVIET SOLAR,BOVIET,conhecido no mercado BR
+Seraphim,SERAPHIM,SERAPHIM,conhecido no mercado BR
+AXITEC,AXITEC,AXITEC,conhecido no mercado BR
+Elgin,ELGIN,ELGIN,marca nacional (BR)
+Autsen,AUTSEN,AUTSEN,conhecido no mercado BR
+Runergy,RUNERGY,RUNERGY,conhecido no mercado BR
+Chint Solar,CHINT|CHINT SOLAR,CHINT,conhecido no mercado BR
+WEG,WEG,WEG,confirmado no profiling (revisao) -- mesma marca usada no campo de inversor
+Growatt,GROWATT,GROWATT,confirmado no profiling (revisao) -- marca de inversor tambem aparece no campo de modulo
+Deye,DEYE,DEYE,confirmado no profiling (revisao) -- marca de inversor tambem aparece no campo de modulo
+Sungrow,SUNGROW,SUNGROW,confirmado no profiling (revisao) -- marca de inversor tambem aparece no campo de modulo
+SAJ,SAJ,SAJ,confirmado no profiling (revisao) -- marca de inversor tambem aparece no campo de modulo
+Solis (Ginlong),SOLIS,SOLIS,confirmado no profiling (revisao) -- marca de inversor tambem aparece no campo de modulo
+Honor Solar,HONOR SOLAR|HONOR|HONOR SOLAR TECHNOLOGY,HONOR,confirmado no profiling (revisao) -- grande volume em anos recentes
+Bel Energy,BELENERGY|BEL ENERGY,,confirmado no profiling (revisao) -- grande volume em anos recentes
+Leapton Solar,LEAPTON|LEAPTON SOLAR,LEAPTON,confirmado no profiling (revisao) -- grande volume em anos recentes
+Era Solar,ERA SOLAR|ERA|ERASOLAR,,confirmado no profiling (revisao)
+ReneSola,RENESOLA,RENESOLA,confirmado no profiling (revisao)
+DMEGC,DMEGC|DMEGC SOLAR,DMEGC,confirmado no profiling (revisao)
+Ronma Solar,RONMA SOLAR|RONMA,RONMA,confirmado no profiling (revisao)
+Pulling Energy,PULLING ENERGY|PULLING,PULLING,confirmado no profiling (revisao)
+Amerisolar,AMERISOLAR,AMERISOLAR,confirmado no profiling (revisao)
+Helius Energy,HELIUS|HELIUS ENERGY,HELIUS,confirmado no profiling (revisao)
+Resun,RESUN,RESUN,confirmado no profiling (revisao)
+Bedin Solar,BEDIN SOLAR|BEDIN|BEDINSOLAR,BEDIN,confirmado no profiling (revisao) -- marca nacional (BR)
+AE Solar,AE SOLAR,,confirmado no profiling (revisao)
+Luxen Solar,LUXEN|LUXEN SOLAR,LUXEN,confirmado no profiling (revisao)
+RenePV,RENEPV,RENEPV,confirmado no profiling (revisao)
+Sine Energy,SINE ENERGY,,confirmado no profiling (revisao)
+Empalux,EMPALUX,EMPALUX,confirmado no profiling (revisao) -- marca nacional (BR)
+Nexen,NEXEN,NEXEN,confirmado no profiling (revisao)
+Gokin Solar,GOKIN|GOKIN SOLAR,GOKIN,confirmado no profiling (revisao)
+Kript,KRIPT,KRIPT,confirmado no profiling (revisao)
+Shinefar,SHINEFAR,SHINEFAR,confirmado no profiling (revisao)
+Solar N Plus,SOLAR N PLUS,,confirmado no profiling (revisao)
+Sengi Solar,SENGI SOLAR,SENGI,confirmado no profiling (revisao)
+Ourolux,OUROLUX,OUROLUX,confirmado no profiling (revisao) -- marca nacional (BR)
+Sunergy,SUNERGY,SUNERGY,confirmado no profiling (revisao)
+Xpower,XPOWER,XPOWER,confirmado no profiling (revisao)
+Balfar Solar,BALFAR SOLAR,BALFAR,confirmado no profiling (revisao)
+Ulica Solar,ULICA|ULICA SOLAR,ULICA,confirmado no profiling (revisao)
+Maxeon,MAXEON,MAXEON,confirmado no profiling (revisao) -- marca da SunPower
+TW Solar,TW SOLAR,,confirmado no profiling (revisao) -- Tongwei
+Inimex,INIMEX,INIMEX,confirmado no profiling (revisao)
+QSolar,QSOLAR,QSOLAR,confirmado no profiling (revisao)

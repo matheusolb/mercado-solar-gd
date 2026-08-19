@@ -1,0 +1,55 @@
+canonical_brand,aliases_exatos,tokens_correspondencia,observacoes
+Growatt,GROWATT|GROWAT,GROWATT,confirmado no profiling (top 1); GROWAT e erro de digitacao comum
+Deye,DEYE,DEYE,confirmado no profiling (top 2)
+Solis (Ginlong),SOLIS|GINLONG SOLIS|GINLONG,SOLIS,confirmado no profiling (top 3)
+WEG,WEG,WEG,confirmado no profiling; marca nacional (BR)
+SAJ,SAJ,SAJ,confirmado no profiling
+Sungrow,SUNGROW,SUNGROW,confirmado no profiling
+Solplanet,SOLPLANET,SOLPLANET,confirmado no profiling
+Sofar Solar,SOFAR|SOFAR SOLAR|SOFARSOLAR,SOFAR,confirmado no profiling
+Huawei,HUAWEI|HUAWEI FUSIONSOLAR|FUSIONSOLAR,HUAWEI,conhecido no mercado BR -- modelo SUN2000 visto no profiling de NomModeloInversor
+Goodwe,GOODWE,GOODWE,conhecido no mercado BR
+Fronius,FRONIUS,FRONIUS,conhecido no mercado BR
+Hoymiles,HOYMILES,HOYMILES,conhecido no mercado BR -- microinversor
+Foxess,FOXESS|FOX ESS,FOXESS,conhecido no mercado BR
+APsystems,APSYSTEMS|AP SYSTEMS|APSYSTEM,APSYSTEMS,conhecido no mercado BR -- microinversor
+Livoltek,LIVOLTEK,LIVOLTEK,conhecido no mercado BR
+Kstar,KSTAR,KSTAR,conhecido no mercado BR
+Must Solar,MUST SOLAR|MUST POWER|MUST ENERGY,,alias apenas -- token MUST e palavra comum demais
+Renovigi,RENOVIGI,RENOVIGI,marca nacional (BR)
+TSUNESS,TSUNESS|TSUNESS TECHNOLOGY,TSUNESS,conhecido no mercado BR
+ABB/FIMER,ABB|FIMER,ABB|FIMER,conhecido no mercado BR -- linha industrial/comercial
+SMA,SMA|SMA SUNNY BOY|SUNNY BOY,,alias apenas -- sigla de 3 letras evitar token substring
+Zeversolar,ZEVERSOLAR|ZEVER SOLAR,ZEVERSOLAR,conhecido no mercado BR
+Sineng,SINENG,SINENG,conhecido no mercado BR
+Kehua,KEHUA,KEHUA,conhecido no mercado BR
+Delta Electronics,DELTA ELECTRONICS|DELTA ELETRONICS,,alias apenas -- DELTA sozinho e palavra comum demais
+Intelbras,INTELBRAS,INTELBRAS,tambem fabrica modulo -- mesma marca canonica dos dois lados
+PHB,PHB|PHB SOLAR|PHB ELETRONICA LTDA,PHB,confirmado no profiling (revisao) -- marca nacional (BR)
+Bel Energy,BELENERGY|BEL ENERGY,,confirmado no profiling (revisao) -- mesma marca do lado modulo
+Canadian Solar,CANADIAN|CANADIAN SOLAR|CANADIAN SOLAR BRASIL,CANADIAN,confirmado no profiling (revisao)
+Renac,RENAC,RENAC,confirmado no profiling (revisao)
+Elgin,ELGIN,ELGIN,confirmado no profiling (revisao) -- marca nacional (BR)
+SolarEdge,SOLAREDGE|SOLAR EDGE,SOLAREDGE,confirmado no profiling (revisao)
+Bedin Solar,BEDIN SOLAR|BEDIN|BEDINSOLAR,BEDIN,confirmado no profiling (revisao) -- marca nacional (BR)
+Auxsol,AUXSOL,AUXSOL,confirmado no profiling (revisao)
+Refusol,REFUSOL,REFUSOL,confirmado no profiling (revisao)
+Chint,CHINT|CHINT POWER,CHINT,confirmado no profiling (revisao)
+WEG (Huawei),WEG HUAWEI|HUAWEI WEG,,confirmado no profiling (revisao) -- rotulo hibrido revendedor/fabricante ficou separado de WEG e Huawei puros
+Hypontech,HYPONTECH,HYPONTECH,confirmado no profiling (revisao)
+Emerson,EMERSON,EMERSON,confirmado no profiling (revisao)
+TBEA,TBEA,TBEA,confirmado no profiling (revisao)
+Empalux,EMPALUX,EMPALUX,confirmado no profiling (revisao) -- marca nacional (BR)
+BYD,BYD,BYD,confirmado no profiling (revisao)
+Tsun,TSUN,TSUN,confirmado no profiling (revisao)
+Ingeteam,INGETEAM,INGETEAM,confirmado no profiling (revisao)
+NEP,NEP,NEP,confirmado no profiling (revisao) -- microinversor
+Enphase,ENPHASE,ENPHASE,confirmado no profiling (revisao) -- microinversor
+GE,GE,,confirmado no profiling (revisao) -- alias apenas sigla curta
+Hopewind,HOPEWIND,HOPEWIND,confirmado no profiling (revisao)
+Ecosolys,ECOSOLYS,ECOSOLYS,confirmado no profiling (revisao) -- marca nacional (BR)
+Nansen,NANSEN,NANSEN,confirmado no profiling (revisao) -- marca nacional (BR)
+Nexen,NEXEN,NEXEN,confirmado no profiling (revisao)
+Each Energy,EACH ENERGY,,confirmado no profiling (revisao)
+Solax Power,SOLAX|SOLAX POWER,SOLAX,confirmado no profiling (revisao)
+Komeco,KOMECO,KOMECO,confirmado no profiling (revisao) -- marca nacional (BR)
