@@ -1,0 +1,1750 @@
+<style>
+  /* Paleta de marca Amara (extraida de Em produção/Projects/Painel Base RD.html)
+     -- cromo da pagina (fundo/texto/bordas/acento/bom/mau) usa as cores da Amara.
+     A paleta categorica --serie-1..10 fica validada contra daltonismo/contraste
+     (ver skill dataviz) e nao muda -- e o TOP_N_GRAFICO_COR usado em todo o
+     pipeline (montar_payload_dashboard.py), entao o numero de series aqui
+     tem que bater com esse valor ou sobra marca sem cor definida no grafico.
+     --serie-9/10 adicionados sem o script validador (node indisponivel no
+     ambiente que gerou isto) -- checar contraste manualmente se notar problema. */
+  :root{
+    --pg-plano:#f3f5f3; --superficie:#ffffff; --tinta:#1b2420; --tinta-2:#55625a; --tinta-muda:#83978b;
+    --grade:#dce2df; --eixo:#dce2df; --borda:rgba(27,36,32,0.10);
+    --acento:#00953b; --acento-fraco:#e6f4eb;
+    --serie-1:#2a78d6; --serie-2:#eb6834; --serie-3:#1baf7a; --serie-4:#eda100;
+    --serie-5:#e87ba4; --serie-6:#008300; --serie-7:#4a3aa7; --serie-8:#e34948;
+    --serie-9:#1c8fa6; --serie-10:#8a6d1e;
+    --outros:#83978b; --nao-informado:#dce2df;
+    --bom:#00953b; --mau:#c23a26;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --pg-plano:#0f1a15; --superficie:#16221c; --tinta:#eaf3ec; --tinta-2:#9fb3a6; --tinta-muda:#6d8377;
+      --grade:#26382e; --eixo:#26382e; --borda:rgba(234,243,236,0.10);
+      --acento:#3fbd72; --acento-fraco:#17301f;
+      --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --serie-4:#c98500;
+      --serie-5:#d55181; --serie-6:#008300; --serie-7:#9085e9; --serie-8:#e66767;
+      --serie-9:#33b8d1; --serie-10:#c9a13a;
+      --outros:#6d8377; --nao-informado:#26382e;
+      --bom:#3fbd72; --mau:#e8695a;
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --pg-plano:#0f1a15; --superficie:#16221c; --tinta:#eaf3ec; --tinta-2:#9fb3a6; --tinta-muda:#6d8377;
+    --grade:#26382e; --eixo:#26382e; --borda:rgba(234,243,236,0.10);
+    --acento:#3fbd72; --acento-fraco:#17301f;
+    --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --serie-4:#c98500;
+    --serie-5:#d55181; --serie-6:#008300; --serie-7:#9085e9; --serie-8:#e66767;
+    --outros:#6d8377; --nao-informado:#26382e;
+    --bom:#3fbd72; --mau:#e8695a;
+    color-scheme:dark;
+  }
+
+  .dash{
+    background:var(--pg-plano); color:var(--tinta);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    max-width:1180px; margin:0 auto; padding:28px 20px 60px;
+    display:flex; flex-direction:column; gap:22px;
+  }
+  .dash *{box-sizing:border-box;}
+  .dash h1,.dash h2{text-wrap:balance; margin:0; font-weight:700;}
+  .dash-head{display:flex; flex-direction:column; gap:6px;}
+  .dash-head-linha{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;}
+  .botao-ajuda{
+    appearance:none; border:1px solid var(--borda); background:var(--superficie); color:var(--tinta);
+    font:inherit; font-size:12.5px; font-weight:600; padding:7px 14px; border-radius:999px; cursor:pointer;
+  }
+  .botao-ajuda:hover{background:var(--acento-fraco);}
+  .botao-ajuda[aria-expanded="true"]{background:var(--acento); color:#fff; border-color:var(--acento);}
+  .botao-ajuda:focus-visible{outline:2px solid var(--acento); outline-offset:2px;}
+  .ajuda-item{padding-bottom:12px; border-bottom:1px solid var(--grade);}
+  .ajuda-item:last-child{border-bottom:none; padding-bottom:0;}
+  .ajuda-item h3{margin:0 0 4px; font-size:14px;}
+  .ajuda-item p{margin:0; font-size:13.5px; color:var(--tinta-2); line-height:1.55;}
+  .eyebrow{
+    margin:0; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--acento);
+  }
+  .dash-head h1{font-size:26px; letter-spacing:-.01em;}
+  .dash-sub{margin:2px 0 0; font-size:13.5px; color:var(--tinta-2); max-width:72ch; line-height:1.5;}
+  .dash-sub strong{color:var(--tinta);}
+
+  .filtros{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  .filtro-grupo{display:inline-flex; gap:2px; background:var(--superficie); border:1px solid var(--borda); border-radius:9px; padding:3px;}
+  .filtro-grupo button{
+    appearance:none; border:none; background:transparent; color:var(--tinta-2);
+    font:inherit; font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:6px; cursor:pointer;
+    transition:background-color .12s, color .12s;
+  }
+  .filtro-grupo button:hover{color:var(--tinta);}
+  .filtro-grupo button[aria-pressed="true"]{background:var(--acento); color:#fff;}
+  .filtro-grupo button:focus-visible{outline:2px solid var(--acento); outline-offset:2px;}
+  .filtro-grupo.filtro-periodo{padding:0; border:none; background:transparent;}
+  .filtro-periodo select{
+    appearance:none; border:1px solid var(--borda); background:var(--superficie); color:var(--tinta);
+    font:inherit; font-size:12.5px; font-weight:600; padding:7px 28px 7px 12px; border-radius:9px; cursor:pointer;
+    max-width:150px; text-overflow:ellipsis;
+    background-image:linear-gradient(45deg,transparent 50%,var(--tinta-muda) 50%),linear-gradient(135deg,var(--tinta-muda) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size:5px 5px,5px 5px; background-repeat:no-repeat;
+  }
+  .filtro-periodo select:focus-visible{outline:2px solid var(--acento); outline-offset:1px;}
+  .filtro-seta{color:var(--tinta-muda); font-size:13px; align-self:center;}
+  .filtros-globais{align-items:center;}
+  .filtro-rotulo{font-size:12px; font-weight:600; color:var(--tinta-muda); align-self:center;}
+  .filtros-nota{margin-top:-4px;}
+  .filtro-aviso{color:var(--tinta-muda); font-size:12px; align-self:center;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 6px 5px 10px; border-radius:999px;
+    background:var(--superficie); border:1px solid var(--borda); font-size:12.5px; font-weight:600; color:var(--tinta);
+  }
+  .chip-swatch{width:9px; height:9px; border-radius:50%; flex:none;}
+  .chip button{
+    appearance:none; border:none; background:transparent; color:var(--tinta-muda); font-size:14px; line-height:1;
+    cursor:pointer; padding:2px 4px; border-radius:50%;
+  }
+  .chip button:hover{color:var(--tinta); background:var(--borda);}
+  .chip button:focus-visible{outline:2px solid var(--acento);}
+
+  .card{
+    background:var(--superficie); border:1px solid var(--borda); border-radius:14px;
+    padding:20px 22px 22px; display:flex; flex-direction:column; gap:14px;
+  }
+  .card[hidden]{display:none;}
+  .card-head{display:flex; flex-direction:column; gap:3px;}
+  .card-head h2{font-size:16.5px;}
+  .card-caption{margin:0; font-size:12.5px; color:var(--tinta-muda);}
+
+  .legend{display:flex; flex-wrap:wrap; gap:6px 16px;}
+  .legend[hidden]{display:none;}
+  .legend-item{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--tinta-2);}
+  .legend-swatch{width:10px; height:10px; border-radius:2.5px; flex:none;}
+  .legend-swatch.linha{width:14px; height:2px; border-radius:1px;}
+
+  .chart-wrap{position:relative; width:100%;}
+  .chart-wrap svg{display:block; width:100%; height:auto; overflow:visible;}
+
+  .grade-multiplos{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px;}
+  .card-multiplo{background:var(--pg-plano); border-radius:8px; padding:8px 10px;}
+  .card-multiplo-nome{font-size:12px; font-weight:600; color:var(--tinta); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px;}
+  .card-multiplo-rodape{font-size:11px; color:var(--tinta-muda); margin-top:2px; font-variant-numeric:tabular-nums;}
+  .card-multiplo-grafico{position:relative; width:100%; height:40px;}
+  .card-multiplo-grafico canvas, .card-multiplo-grafico svg{display:block; width:100%; height:40px;}
+  .hitzone{fill:transparent; cursor:pointer;}
+  .hitzone:focus-visible{outline:2px solid var(--acento); outline-offset:-2px;}
+  .eixo-txt{fill:var(--tinta-muda); font-size:10.5px;}
+  .eixo-txt.forte{fill:var(--acento); font-weight:700;}
+  .eixo-linha{stroke:var(--grade); stroke-width:1;}
+  .barra-realce{fill:none; stroke:var(--tinta); stroke-opacity:0; stroke-width:1.5; pointer-events:none; transition:stroke-opacity .1s;}
+  .segmento{transition:opacity .1s;}
+  .linha-zero{stroke:var(--eixo); stroke-width:1;}
+
+  .tooltip{
+    position:fixed; z-index:40; pointer-events:none; background:var(--superficie);
+    border:1px solid var(--borda); border-radius:10px; padding:10px 12px; font-size:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.16); min-width:150px; max-width:280px;
+    transition:opacity .08s; opacity:0;
+  }
+  .tooltip.visivel{opacity:1;}
+  .tooltip[hidden]{display:none;}
+
+  .botao-flutuante{
+    position:fixed; right:20px; bottom:20px; z-index:45;
+    width:46px; height:46px; border-radius:50%; border:none;
+    background:var(--acento); color:#fff; font-size:18px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.22);
+    transition:transform .12s, box-shadow .12s;
+  }
+  .botao-flutuante:hover{transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.26);}
+  .botao-flutuante:focus-visible{outline:2px solid var(--acento); outline-offset:2px;}
+  .botao-flutuante[hidden]{display:none;}
+  .tooltip-titulo{font-weight:700; font-size:12.5px; margin:0 0 6px; color:var(--tinta);}
+  .tooltip-linha{display:flex; align-items:center; gap:7px; padding:2px 0; justify-content:space-between; gap:12px;}
+  .tooltip-chave{display:flex; align-items:center; gap:6px; color:var(--tinta-2); min-width:0;}
+  .tooltip-chave span.nome{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tooltip-tick{width:10px; height:2px; border-radius:1px; flex:none;}
+  .tooltip-valor{font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--tinta);}
+  .tooltip-total{margin-top:6px; padding-top:6px; border-top:1px solid var(--grade); display:flex; justify-content:space-between; font-size:11.5px; color:var(--tinta-muda);}
+
+  table.dados{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.dados caption{display:none;}
+  table.dados th,table.dados td{padding:6px 10px; text-align:right; border-bottom:1px solid var(--grade); white-space:nowrap;}
+  table.dados th:first-child,table.dados td:first-child{text-align:left;}
+  table.dados thead th{color:var(--tinta-muda); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.03em;}
+  table.dados td{font-variant-numeric:tabular-nums; color:var(--tinta-2);}
+  table.dados td:first-child{color:var(--tinta); font-weight:600;}
+  table.dados td.forte{color:var(--acento); font-weight:700;}
+  table.dados tr.linha-expansivel{background:var(--acento-fraco);}
+  table.dados tr.linha-expansivel:hover{background:var(--borda);}
+  table.dados tr.linha-expansivel:focus-visible{outline:2px solid var(--acento); outline-offset:-2px;}
+  table.dados tr.linha-expansivel td:first-child{color:var(--acento);}
+  table.dados tr.linha-detalhe td:first-child{color:var(--tinta-muda); font-weight:400;}
+  table.dados tr.linha-detalhe td:nth-child(2){padding-left:22px; color:var(--tinta-2); font-weight:400;}
+  .table-scroll{overflow-x:auto; max-height:340px; overflow-y:auto; border:1px solid var(--grade); border-radius:8px;}
+  details.table-toggle summary{
+    cursor:pointer; font-size:12.5px; font-weight:600; color:var(--acento); list-style:none; width:fit-content;
+  }
+  details.table-toggle summary::-webkit-details-marker{display:none;}
+  details.table-toggle summary::before{content:"▸ "; display:inline;}
+  details.table-toggle[open] summary::before{content:"▾ ";}
+  details.table-toggle{margin-top:2px;}
+
+  .barra-rotulo{fill:var(--tinta-2); font-size:11.5px; font-variant-numeric:tabular-nums;}
+  .barra-rotulo.forte{fill:var(--tinta); font-weight:700;}
+  .marca-rotulo{fill:var(--tinta); font-size:12px; font-weight:600;}
+  .badge-novo{fill:var(--acento);}
+  .badge-novo-txt{fill:#fff; font-size:9.5px; font-weight:700;}
+
+  .dash-foot{font-size:11.5px; color:var(--tinta-muda); line-height:1.6; border-top:1px solid var(--grade); padding-top:14px;}
+  .dash-foot p{margin:0 0 4px;}
+
+  @media (max-width:640px){
+    .dash-head h1{font-size:21px;}
+    .card{padding:16px 14px 18px;}
+  }
+</style>
+
+<div class="dash">
+  <header class="dash-head">
+    <div class="dash-head-linha">
+      <p class="eyebrow">Geração Distribuída Solar · Dados ANEEL</p>
+      <button type="button" class="botao-ajuda" id="botao-ajuda" aria-expanded="false">❓ Como usar este painel</button>
+    </div>
+    <h1>Evolução de marcas de módulos e inversores</h1>
+    <p class="dash-sub" id="subtitulo"></p>
+  </header>
+
+  <section class="card" id="painel-ajuda" hidden></section>
+
+  <div class="filtros filtros-globais">
+    <div class="filtro-grupo" id="filtro-campo"></div>
+    <label class="filtro-rotulo" for="filtro-periodo-global-select">Período</label>
+    <div class="filtro-grupo filtro-periodo" id="filtro-periodo-global"></div>
+    <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
+    <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
+  </div>
+  <p class="dash-sub filtros-nota">Período vale para Ranking e para as seções de Faixa/Classe/Tarifa/Distribuidora/Geografia: todas ficam sempre no mesmo recorte de tempo. Estado é um atalho, pula direto para o município escolhido em "Comportamento geográfico" (que também dá pra navegar clicando, a partir do Brasil).</p>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Participação de mercado ao longo do tempo</h2>
+      <p class="card-caption" id="legenda-tendencia-caption"></p>
+    </div>
+    <div class="filtros">
+      <div class="filtro-grupo" id="filtro-granularidade"></div>
+      <div class="filtro-grupo filtro-periodo" id="filtro-tendencia-de"></div>
+      <span class="filtro-seta">→</span>
+      <div class="filtro-grupo filtro-periodo" id="filtro-tendencia-ate"></div>
+    </div>
+    <div class="legend" id="legenda-tendencia"></div>
+    <div class="chart-wrap" id="wrap-tendencia">
+      <svg id="svg-tendencia" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Ver dados em tabela</summary>
+      <div class="table-scroll"><table class="dados" id="tabela-tendencia"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Cada marca, individualmente</h2>
+      <p class="card-caption" id="legenda-multiplos-caption"></p>
+    </div>
+    <div id="grade-multiplos" class="grade-multiplos"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comparar marcas específicas</h2>
+      <p class="card-caption" id="legenda-marca-especifica-caption"></p>
+    </div>
+    <div class="filtros">
+      <div class="filtro-grupo filtro-periodo" id="filtro-marca-especifica"></div>
+      <span class="filtro-aviso" id="aviso-marca-especifica"></span>
+    </div>
+    <div class="chips" id="chips-marca-especifica"></div>
+    <div class="chart-wrap" id="wrap-marca-especifica">
+      <svg id="svg-marca-especifica" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Quem ganhou e quem perdeu espaço</h2>
+      <p class="card-caption" id="legenda-leaderboard-caption"></p>
+    </div>
+    <div class="filtros">
+      <div class="filtro-grupo filtro-periodo" id="filtro-periodo-de"></div>
+      <span class="filtro-seta">→</span>
+      <div class="filtro-grupo filtro-periodo" id="filtro-periodo-ate"></div>
+      <div class="filtro-grupo" id="filtro-metrica"></div>
+    </div>
+    <div class="chart-wrap" id="wrap-leaderboard">
+      <svg id="svg-leaderboard" viewBox="0 0 1000 440" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Ver tabela completa</summary>
+      <div class="table-scroll"><table class="dados" id="tabela-leaderboard"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Ranking completo de marcas</h2>
+      <p class="card-caption" id="legenda-ranking-caption"></p>
+    </div>
+    <div class="filtros">
+      <div class="filtro-grupo" id="filtro-top-n"></div>
+    </div>
+    <div class="table-scroll"><table class="dados" id="tabela-ranking"></table></div>
+    <details class="table-toggle"><summary>O que tem dentro de "Não identificado"?</summary>
+      <p class="card-caption" id="explicacao-nao-identificado" style="margin-top:8px;"></p>
+      <div class="table-scroll"><table class="dados" id="tabela-nao-identificado"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento por faixa de potência</h2>
+      <p class="card-caption" id="legenda-faixa-caption"></p>
+    </div>
+    <div class="legend" id="legenda-faixa"></div>
+    <div class="chart-wrap" id="wrap-faixa">
+      <svg id="svg-faixa" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle" open><summary>Quem se sobressai em cada faixa (índice de especialização)</summary>
+      <p class="card-caption" id="explicacao-especialistas-faixa" style="margin-top:8px;"></p>
+      <div class="table-scroll"><table class="dados" id="tabela-faixa"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento por classe de consumo</h2>
+      <p class="card-caption" id="legenda-classe-caption"></p>
+    </div>
+    <div class="legend" id="legenda-classe"></div>
+    <div class="chart-wrap" id="wrap-classe">
+      <svg id="svg-classe" viewBox="0 0 1000 240" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Quem se sobressai em cada classe (índice de especialização)</summary>
+      <p class="card-caption" id="explicacao-especialistas-classe" style="margin-top:8px;"></p>
+      <div class="table-scroll"><table class="dados" id="tabela-classe"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento por grupo tarifário</h2>
+      <p class="card-caption" id="legenda-tarifa-caption"></p>
+    </div>
+    <div class="legend" id="legenda-tarifa"></div>
+    <div class="chart-wrap" id="wrap-tarifa">
+      <svg id="svg-tarifa" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Quem se sobressai em cada grupo tarifário (índice de especialização)</summary>
+      <p class="card-caption" id="explicacao-especialistas-tarifa" style="margin-top:8px;"></p>
+      <div class="table-scroll"><table class="dados" id="tabela-tarifa"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento por distribuidora</h2>
+      <p class="card-caption" id="legenda-distribuidora-caption"></p>
+    </div>
+    <div class="legend" id="legenda-distribuidora"></div>
+    <div class="chart-wrap" id="wrap-distribuidora">
+      <svg id="svg-distribuidora" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Quem se sobressai em cada distribuidora (índice de especialização)</summary>
+      <p class="card-caption" id="explicacao-especialistas-distribuidora" style="margin-top:8px;"></p>
+      <div class="table-scroll"><table class="dados" id="tabela-distribuidora"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento geográfico</h2>
+      <p class="card-caption" id="geo-caption"></p>
+    </div>
+    <div class="filtro-grupo" id="geo-breadcrumb" role="navigation" aria-label="Navegação geográfica"></div>
+    <div class="legend" id="geo-legend"></div>
+    <div class="chart-wrap" id="wrap-geo">
+      <svg id="svg-geo" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary>Ver tabela completa</summary>
+      <div class="table-scroll"><table class="dados" id="tabela-geo"></table></div>
+    </details>
+  </section>
+
+  <footer class="dash-foot" id="rodape"></footer>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+  <button type="button" id="botao-topo" class="botao-flutuante" aria-label="Ir para o início" hidden>
+    <span aria-hidden="true">↑</span>
+  </button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+(function(){
+"use strict";
+// Chart.js e opcional: da mais recurso (tooltip pronto) na seção "cada marca
+// individualmente" quando carrega, mas o dashboard publicado como Artifact
+// bloqueia scripts externos (CSP) -- nesse caso o script acima falha e
+// "Chart" fica indefinido. renderMultiplos() detecta isso e cai pra SVG
+// desenhado a mao (mesma logica de sempre no resto do arquivo), sem quebrar.
+var TEM_CHARTJS = typeof Chart !== "undefined";
+
+var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
+
+var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
+
+var estado = { campo:"modulo", granularidade:"mensal", anoDeGrafico:null, anoAteGrafico:null, metrica:"pontos", periodoDe:null, periodoAte:null, periodoGlobal:null, topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null };
+var TOP_N_COR = 10;
+
+function el(tag, attrs, ns){
+  var node = ns ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+  if (attrs) for (var k in attrs){ if (k === "text") node.textContent = attrs[k]; else node.setAttribute(k, attrs[k]); }
+  return node;
+}
+function svgEl(tag, attrs){ return el(tag, attrs, true); }
+function limpar(node){ while (node.firstChild) node.removeChild(node.firstChild); }
+function fmtMW(v){
+  var abs = Math.abs(v);
+  var s = abs >= 1000 ? (v/1000).toFixed(2) + " GW" : v.toFixed(abs < 10 ? 2 : 1) + " MW";
+  return s;
+}
+function fmtPct(v, casas){ return (v > 0 ? "+" : "") + v.toFixed(casas === undefined ? 1 : casas) + " p.p.";}
+
+function agregarPorChave(periodos, chaveFn){
+  var grupos = {}, ordem = [];
+  periodos.forEach(function(p){
+    var chave = chaveFn(p);
+    if (!grupos[chave]){ grupos[chave] = { periodo: chave, total_mw: 0, valores_mw: p.valores_mw.map(function(){ return 0; }) }; ordem.push(chave); }
+    grupos[chave].total_mw += p.total_mw;
+    p.valores_mw.forEach(function(v,i){ grupos[chave].valores_mw[i] += v; });
+  });
+  return ordem.sort().map(function(c){ return grupos[c]; });
+}
+
+function agregarAnual(serieMensal){
+  return agregarPorChave(serieMensal, function(p){ return p.periodo.slice(0,4); });
+}
+
+function anosNoRange(anoDe, anoAte){
+  var lista = [];
+  for (var a = parseInt(anoDe,10); a <= parseInt(anoAte,10); a++) lista.push(String(a));
+  return lista;
+}
+
+function topMarcasPorPeriodos(dados, chaves, n){
+  var totais = {};
+  chaves.forEach(function(chave){
+    var marcasMw = dados.periodos.marcas_mw[chave];
+    if (!marcasMw) return;
+    Object.keys(marcasMw).forEach(function(m){ totais[m] = (totais[m]||0) + marcasMw[m]; });
+  });
+  return Object.keys(totais).sort(function(a,b){ return totais[b]-totais[a]; }).slice(0, n);
+}
+
+// Reconstroi a serie mensal com quebra por marca (top-N escolhido dinamicamente,
+// nao o fixo do payload) a partir de serie_por_marca (todas as marcas reais) +
+// o total/Não-informado ja existentes em serie_mensal (que nao dependem de QUAL
+// top-N esta selecionado -- so o quanto vira "Outros" depende disso).
+function serieMensalDinamica(dados, marcasFold){
+  var spm = dados.serie_por_marca;
+  var serieRef = dados.serie_mensal;
+  var idxNaoInfRef = dados.marcas_cor.length - 1;
+  var top8Idx = {};
+  marcasFold.slice(0, TOP_N_COR).forEach(function(m, idx){ top8Idx[m] = idx; });
+
+  return spm.periodos_mensais.map(function(periodo, i){
+    var valores = marcasFold.map(function(){ return 0; });
+    var somaTop8 = 0;
+    Object.keys(spm.valores).forEach(function(marca){
+      var v = spm.valores[marca][i] || 0;
+      if (marca in top8Idx){ valores[top8Idx[marca]] += v; somaTop8 += v; }
+    });
+    var ref = serieRef[i];
+    var totalMes = ref ? ref.total_mw : 0;
+    var naoInfMes = ref ? ref.valores_mw[idxNaoInfRef] : 0;
+    valores[marcasFold.length-2] = Math.max(0, totalMes - somaTop8 - naoInfMes);
+    valores[marcasFold.length-1] = naoInfMes;
+    return { periodo: periodo, total_mw: totalMes, valores_mw: valores };
+  });
+}
+
+function emPeriodo(dados, chave){
+  var rotulo = rotuloExtenso(dados, chave);
+  return (chave === "ultimos_12m" ? "nos " : "em ") + rotulo.toLowerCase();
+}
+
+function rotuloExtenso(dados, chave){
+  var base = dados.periodos.rotulos[chave];
+  var ext = dados.periodos.extremos && dados.periodos.extremos[chave];
+  if (chave === "ultimos_12m" && ext) return base + " (" + ext[0] + " a " + ext[1] + ")";
+  return base;
+}
+
+function mesParaTrimestre(anoMes){
+  var partes = anoMes.split("-"), ano = partes[0], mes = parseInt(partes[1], 10);
+  return ano + "-Q" + (Math.floor((mes-1)/3)+1);
+}
+
+function serieUnicaPorGranularidade(periodosMensais, valores, granularidade){
+  if (granularidade === "mensal"){
+    return periodosMensais.map(function(p, i){ return { periodo: p, valor: valores[i] }; });
+  }
+  var chave = granularidade === "trimestral" ? mesParaTrimestre : function(p){ return p.slice(0,4); };
+  var porPeriodo = {}, ordem = [];
+  periodosMensais.forEach(function(p, i){
+    var k = chave(p);
+    if (!(k in porPeriodo)){ porPeriodo[k] = 0; ordem.push(k); }
+    porPeriodo[k] += valores[i];
+  });
+  return ordem.map(function(k){ return { periodo: k, valor: porPeriodo[k] }; });
+}
+
+function anosCompletos(dados){
+  return dados.periodos.ordem.filter(function(k){
+    return k !== "ultimos_12m" && dados.periodos.rotulos[k].indexOf("parcial") === -1;
+  });
+}
+
+function inicializarEstadoPeriodos(){
+  var dados = DADOS.campos.modulo;
+  var completos = anosCompletos(dados);
+  estado.periodoDe = completos.length >= 2 ? completos[completos.length-2] : dados.periodos.ordem[0];
+  estado.periodoAte = completos.length >= 1 ? completos[completos.length-1] : dados.periodos.ordem[0];
+  estado.periodoGlobal = "ultimos_12m";
+  estado.marcasComparadas = [dados.marcas[0]];
+  estado.estadoGlobal = "SP";
+  var anos = dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; });
+  estado.anoDeGrafico = anos[0];
+  estado.anoAteGrafico = anos[anos.length-1];
+  // Drill-down geografico comeca no topo (Brasil > regioes) -- o Estado escolhido
+  // no cabecalho e so usado quando o usuario pede pra ir direto ao municipio (ver
+  // montarFiltrosGlobais), nao forca o drill-down a abrir ja no fundo.
+  estado.geoNivel = "regiao";
+  estado.geoRegiaoAtual = null;
+}
+
+function montarSeletorAno(container, dados, valorAtual, onChange){
+  limpar(container);
+  var sel = el("select", { "aria-label":"Selecionar ano" });
+  dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; }).forEach(function(chave){
+    var opt = document.createElement("option");
+    opt.value = chave; opt.textContent = dados.periodos.rotulos[chave];
+    sel.appendChild(opt);
+  });
+  sel.value = valorAtual;
+  sel.addEventListener("change", function(){ onChange(sel.value); });
+  container.appendChild(sel);
+}
+
+function montarSeletorPeriodo(container, dados, valorAtual, onChange){
+  limpar(container);
+  var sel = el("select", { "aria-label":"Selecionar período" });
+  dados.periodos.ordem.forEach(function(chave){
+    var opt = document.createElement("option");
+    opt.value = chave; opt.textContent = dados.periodos.rotulos[chave];
+    sel.appendChild(opt);
+  });
+  sel.value = valorAtual;
+  sel.addEventListener("change", function(){ onChange(sel.value); });
+  container.appendChild(sel);
+}
+
+function montarSeletorEstado(container, dados, valorAtual, onChange){
+  limpar(container);
+  var sel = el("select", { "aria-label":"Selecionar estado" });
+  Object.keys(dados.marcas_por_uf).sort().forEach(function(uf){
+    var opt = document.createElement("option");
+    opt.value = uf; opt.textContent = uf;
+    sel.appendChild(opt);
+  });
+  sel.value = valorAtual;
+  sel.addEventListener("change", function(){ onChange(sel.value); });
+  container.appendChild(sel);
+}
+
+// Periodo e estado escolhidos uma vez so, no cabecalho -- usados por Ranking,
+// Faixa/Classe/Tarifa/Distribuidora e pelo drill-down geografico, pra nao ter
+// recortes de tempo/UF diferentes ao mesmo tempo entre secoes (era a causa da
+// "cidade lider" divergir entre secoes antes: cada uma usava seu proprio filtro).
+function montarFiltrosGlobais(){
+  var dados = DADOS.campos[estado.campo];
+  var ufs = Object.keys(dados.marcas_por_uf).sort();
+  if (ufs.indexOf(estado.estadoGlobal) === -1) estado.estadoGlobal = ufs[0];
+
+  montarSeletorPeriodo(document.getElementById("filtro-periodo-global"), dados, estado.periodoGlobal, function(v){
+    estado.periodoGlobal = v; renderRanking(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
+  });
+  montarSeletorEstado(document.getElementById("filtro-estado-global"), dados, estado.estadoGlobal, function(v){
+    // O seletor do cabecalho e um atalho "ir direto pro municipio" -- pula a
+    // navegacao manual Brasil > regiao > estado e abre ja no fundo, na regiao
+    // certa (pra o breadcrumb ficar coerente se o usuario clicar "voltar").
+    estado.estadoGlobal = v;
+    estado.geoRegiaoAtual = (dados.uf_regiao || {})[v] || null;
+    estado.geoNivel = "municipio";
+    renderGeografia();
+  });
+}
+
+function calcularLeaderboard(dados, chaveDe, chaveAte){
+  var marcasMw = dados.periodos.marcas_mw, totaisMw = dados.periodos.totais_mw;
+  var mDe = marcasMw[chaveDe] || {}, mAte = marcasMw[chaveAte] || {};
+  var totalDe = totaisMw[chaveDe] || 0, totalAte = totaisMw[chaveAte] || 0;
+  var todas = {};
+  Object.keys(mDe).forEach(function(k){ todas[k] = 1; });
+  Object.keys(mAte).forEach(function(k){ todas[k] = 1; });
+  return Object.keys(todas).map(function(marca){
+    var ki = mDe[marca] || 0, kf = mAte[marca] || 0;
+    var shareI = totalDe > 0 ? ki/totalDe*100 : 0, shareF = totalAte > 0 ? kf/totalAte*100 : 0;
+    var crescRel = null, novo = false;
+    if (ki > 0){ crescRel = (kf-ki)/ki*100; } else { novo = kf > 0; }
+    return {
+      marca: marca, mw_inicial: ki, mw_final: kf,
+      share_inicial_pct: shareI, share_final_pct: shareF,
+      delta_pontos_percentuais: shareF - shareI,
+      crescimento_relativo_pct: crescRel, entrante_novo: novo,
+      delta_mw_absoluto: kf - ki
+    };
+  });
+}
+
+function resumoDestaques(dados){
+  var linhas = calcularLeaderboard(dados, estado.anoDeGrafico, estado.anoAteGrafico);
+  var porShareFinal = linhas.slice().sort(function(a,b){ return b.share_final_pct - a.share_final_pct; });
+  var porDelta = linhas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
+  return {
+    anoBase: estado.anoDeGrafico,
+    anoRecente: estado.anoAteGrafico,
+    lider: porShareFinal[0],
+    maiorAlta: porDelta[0],
+    maiorQueda: porDelta[porDelta.length-1],
+  };
+}
+
+function niceStep(maxVal, targetTicks){
+  if (maxVal <= 0) return 1;
+  var raw = maxVal / targetTicks;
+  var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+  var norm = raw / mag, passo;
+  if (norm < 1.5) passo = 1; else if (norm < 3) passo = 2; else if (norm < 7) passo = 5; else passo = 10;
+  return passo * mag;
+}
+
+// Interpolacao cubica monotona (Fritsch-Carlson) -- gera um "d" de path SVG que
+// passa exatamente pelos pontos dados, suavizado, mas SEM estourar acima/abaixo
+// do dado real entre dois pontos (ao contrario de bezier com tensao simples, que
+// pode ultrapassar um pico e sugerir um valor que nao existe). Usado no grafico
+// de area principal -- ver skill dataviz sobre nao inventar dado visualmente.
+// pontos: [{x,y}, ...] com x estritamente crescente.
+function caminhoMonotono(pontos, comeco){
+  var n = pontos.length;
+  if (n === 0) return "";
+  if (n === 1) return (comeco?"M":"L") + pontos[0].x + "," + pontos[0].y;
+  var d = [], m = [];
+  for (var i = 0; i < n-1; i++){
+    var dx = pontos[i+1].x - pontos[i].x;
+    d.push(dx !== 0 ? (pontos[i+1].y - pontos[i].y) / dx : 0);
+  }
+  m[0] = d[0];
+  m[n-1] = d[n-2];
+  for (var i = 1; i < n-1; i++){
+    m[i] = (d[i-1] <= 0 && d[i] >= 0) || (d[i-1] >= 0 && d[i] <= 0) ? 0 : (d[i-1] + d[i]) / 2;
+  }
+  for (var i = 0; i < n-1; i++){
+    if (d[i] === 0){ m[i] = 0; m[i+1] = 0; continue; }
+    var a = m[i] / d[i], b = m[i+1] / d[i];
+    var s = a*a + b*b;
+    if (s > 9){ var tau = 3 / Math.sqrt(s); m[i] = tau*a*d[i]; m[i+1] = tau*b*d[i]; }
+  }
+  var partes = [(comeco?"M":"L") + pontos[0].x + "," + pontos[0].y];
+  for (var i = 0; i < n-1; i++){
+    var dx = (pontos[i+1].x - pontos[i].x) / 3;
+    var c1x = pontos[i].x + dx, c1y = pontos[i].y + m[i]*dx;
+    var c2x = pontos[i+1].x - dx, c2y = pontos[i+1].y - m[i+1]*dx;
+    partes.push("C" + c1x.toFixed(2) + "," + c1y.toFixed(2) + " " + c2x.toFixed(2) + "," + c2y.toFixed(2) + " " + pontos[i+1].x.toFixed(2) + "," + pontos[i+1].y.toFixed(2));
+  }
+  return partes.join(" ");
+}
+
+function montarFiltro(container, opcoes, atual, onChange){
+  limpar(container);
+  opcoes.forEach(function(op){
+    var b = el("button", { type:"button", text: op.label });
+    b.setAttribute("aria-pressed", String(op.valor === atual));
+    b.addEventListener("click", function(){ onChange(op.valor); });
+    container.appendChild(b);
+  });
+}
+
+var tooltipEl = document.getElementById("tooltip");
+function mostrarTooltip(x, y, titulo, linhas, totalTxt){
+  limpar(tooltipEl);
+  var h = el("p", { class:"tooltip-titulo", text: titulo });
+  tooltipEl.appendChild(h);
+  linhas.forEach(function(l){
+    var row = el("div", { class:"tooltip-linha" });
+    var chave = el("div", { class:"tooltip-chave" });
+    if (l.cor){ var tick = el("span", { class:"tooltip-tick" }); tick.style.background = l.cor; chave.appendChild(tick); }
+    var nome = el("span", { class:"nome", text: l.nome });
+    chave.appendChild(nome);
+    var val = el("span", { class:"tooltip-valor", text: l.valor });
+    row.appendChild(chave); row.appendChild(val);
+    tooltipEl.appendChild(row);
+  });
+  if (totalTxt){
+    var tot = el("div", { class:"tooltip-total" });
+    tot.appendChild(el("span", { text:"Total" }));
+    tot.appendChild(el("span", { text: totalTxt }));
+    tooltipEl.appendChild(tot);
+  }
+  tooltipEl.hidden = false;
+  requestAnimationFrame(function(){
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var r = tooltipEl.getBoundingClientRect();
+    var px = Math.min(x + 14, vw - r.width - 10);
+    var py = Math.min(y + 14, vh - r.height - 10);
+    tooltipEl.style.left = Math.max(8, px) + "px";
+    tooltipEl.style.top = Math.max(8, py) + "px";
+    tooltipEl.classList.add("visivel");
+  });
+}
+function esconderTooltip(){ tooltipEl.classList.remove("visivel"); tooltipEl.hidden = true; }
+
+function anexarHover(node, onShow){
+  node.addEventListener("pointerenter", function(e){ onShow(e.clientX, e.clientY); node.querySelectorAll ? null : null; });
+  node.addEventListener("pointermove", function(e){ onShow(e.clientX, e.clientY); });
+  node.addEventListener("pointerleave", esconderTooltip);
+  node.addEventListener("focus", function(){ var r = node.getBoundingClientRect(); onShow(r.left + r.width/2, r.top); });
+  node.addEventListener("blur", esconderTooltip);
+}
+
+function renderLegenda(container, nomes){
+  limpar(container);
+  nomes.forEach(function(nome, i){
+    var item = el("div", { class:"legend-item" });
+    var sw = el("span", { class:"legend-swatch" }); sw.style.background = CORES[i];
+    item.appendChild(sw); item.appendChild(el("span", { text: nome }));
+    container.appendChild(item);
+  });
+}
+
+function renderTendencia(){
+  var dados = DADOS.campos[estado.campo];
+
+  montarSeletorAno(document.getElementById("filtro-tendencia-de"), dados, estado.anoDeGrafico, function(v){
+    estado.anoDeGrafico = v; if (estado.anoDeGrafico > estado.anoAteGrafico) estado.anoAteGrafico = v; renderTendencia();
+  });
+  montarSeletorAno(document.getElementById("filtro-tendencia-ate"), dados, estado.anoAteGrafico, function(v){
+    estado.anoAteGrafico = v; if (estado.anoAteGrafico < estado.anoDeGrafico) estado.anoDeGrafico = v; renderTendencia();
+  });
+
+  // As TOP_N_COR marcas em destaque reagem ao periodo De/Ate selecionado (nao
+  // ficam fixas) -- uma marca que so foi relevante fora da janela visivel nao
+  // deveria ocupar uma das cores enquanto voce olha so pra um recorte especifico.
+  var top8Dinamico = topMarcasPorPeriodos(dados, anosNoRange(estado.anoDeGrafico, estado.anoAteGrafico), TOP_N_COR);
+  var marcas = top8Dinamico.concat(dados.marcas_cor.slice(-2));
+  var serieMensalDin = serieMensalDinamica(dados, marcas);
+  var serieBruta = estado.granularidade === "mensal" ? serieMensalDin
+                  : estado.granularidade === "trimestral" ? agregarPorChave(serieMensalDin, function(p){ return mesParaTrimestre(p.periodo); })
+                  : agregarAnual(serieMensalDin);
+  var periodos = serieBruta.filter(function(p){
+    var ano = p.periodo.slice(0,4);
+    return ano >= estado.anoDeGrafico && ano <= estado.anoAteGrafico;
+  });
+
+  renderLegenda(document.getElementById("legenda-tendencia"), marcas);
+  var destaques = resumoDestaques(dados);
+  document.getElementById("legenda-tendencia-caption").textContent =
+    destaques.lider.marca + " lidera com " + destaques.lider.share_final_pct.toFixed(1) + "% de participação em " + destaques.anoRecente + ". " +
+    destaques.maiorAlta.marca + " foi quem mais ganhou espaço desde " + destaques.anoBase + " (" + fmtPct(destaques.maiorAlta.delta_pontos_percentuais) +
+    "), e " + destaques.maiorQueda.marca + " quem mais perdeu (" + fmtPct(destaques.maiorQueda.delta_pontos_percentuais) + ").";
+
+  var svg = document.getElementById("svg-tendencia");
+  limpar(svg);
+  var W = 1000, H = 380, ML = 54, MR = 14, MT = 12, MB = 34;
+  var larguraGrafico = W - ML - MR, alturaGrafico = H - MT - MB;
+  var maxTotal = Math.max.apply(null, periodos.map(function(p){ return p.total_mw; }).concat([1]));
+  var passo = niceStep(maxTotal, 5);
+  var maxEixo = Math.ceil(maxTotal / passo) * passo + passo;
+  var n = periodos.length;
+  var largBanda = larguraGrafico / n;
+
+  for (var t = 0; t <= maxEixo; t += passo){
+    var y = MT + alturaGrafico - (t / maxEixo) * alturaGrafico;
+    svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: (t>=1000? (t/1000).toFixed(1)+" GW": Math.round(t)) }));
+  }
+
+  // Area empilhada com interpolacao monotona (ver caminhoMonotono) -- suaviza sem
+  // estourar acima/abaixo do dado real entre dois meses. Precisa da posicao X de
+  // cada periodo (centro da banda) e da pilha acumulada MW por periodo antes de
+  // desenhar, ja que cada banda e um path unico cobrindo todos os periodos (nao
+  // um retangulo por mes como era na barra).
+  var xs = periodos.map(function(p, i){ return ML + i*largBanda + largBanda/2; });
+  function yPix(v){ return maxEixo > 0 ? MT + alturaGrafico - (v/maxEixo)*alturaGrafico : MT + alturaGrafico; }
+  var acumulados = periodos.map(function(p){
+    var acc = 0;
+    return marcas.map(function(nome, s){ acc += Math.max(0, p.valores_mw[s]); return acc; });
+  });
+
+  marcas.forEach(function(nome, s){
+    var topo = xs.map(function(x, i){ return { x:x, y:yPix(acumulados[i][s]) }; });
+    var baseInvertida = xs.map(function(x, i){ return { x:x, y:yPix(s === 0 ? 0 : acumulados[i][s-1]) }; }).reverse();
+    var d = caminhoMonotono(topo, true) + " " + caminhoMonotono(baseInvertida, false) + " Z";
+    svg.appendChild(svgEl("path", { class:"segmento", d:d, fill:CORES[s] }));
+  });
+
+  var strideRotulo = Math.max(1, Math.ceil(n / 14));
+  periodos.forEach(function(p, i){
+    if (i % strideRotulo === 0 || i === n-1){
+      svg.appendChild(svgEl("text", { class:"eixo-txt", x:xs[i], y:H-MB+16, "text-anchor":"middle", text:p.periodo }));
+    }
+  });
+
+  // Crosshair + tooltip por periodo (padrao pra grafico de linha/area): uma linha
+  // vertical fina no mes sob o mouse, em vez do retangulo largo que fazia sentido
+  // pra realçar uma barra mas nao um ponto num continuo.
+  var crosshair = svgEl("line", { class:"barra-realce", x1:0, x2:0, y1:MT, y2:MT+alturaGrafico });
+  svg.appendChild(crosshair);
+  periodos.forEach(function(p, i){
+    var hit = svgEl("rect", { class:"hitzone", x:ML + i*largBanda, y:MT, width:largBanda, height:alturaGrafico, tabindex:"0", role:"img", "aria-label":"Período " + p.periodo });
+    svg.appendChild(hit);
+    (function(periodoRef, xRef){
+      anexarHover(hit, function(cx, cy){
+        crosshair.setAttribute("x1", xRef); crosshair.setAttribute("x2", xRef);
+        crosshair.style.strokeOpacity = 1;
+        var linhas = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(periodoRef.valores_mw[s]) }; })
+          .filter(function(l, idx){ return periodoRef.valores_mw[idx] > 0.0005; })
+          .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
+        mostrarTooltip(cx, cy, periodoRef.periodo, linhas, fmtMW(periodoRef.total_mw));
+      });
+      hit.addEventListener("pointerleave", function(){ crosshair.style.strokeOpacity = 0; });
+      hit.addEventListener("blur", function(){ crosshair.style.strokeOpacity = 0; });
+    })(p, xs[i]);
+  });
+  svg.appendChild(svgEl("line", { class:"linha-zero", x1:ML, x2:W-MR, y1:MT+alturaGrafico, y2:MT+alturaGrafico }));
+
+  var tabela = document.getElementById("tabela-tendencia");
+  limpar(tabela);
+  var thead = el("thead"); var trh = el("tr");
+  trh.appendChild(el("th", { text:"Período" }));
+  marcas.forEach(function(m){ trh.appendChild(el("th", { text:m })); });
+  trh.appendChild(el("th", { text:"Total" }));
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody");
+  periodos.slice().reverse().forEach(function(p){
+    var tr = el("tr");
+    tr.appendChild(el("td", { text:p.periodo }));
+    p.valores_mw.forEach(function(v){ tr.appendChild(el("td", { text: v.toFixed(1) })); });
+    tr.appendChild(el("td", { text: p.total_mw.toFixed(1) }));
+    tbody.appendChild(tr);
+  });
+  tabela.appendChild(tbody);
+  renderMultiplos();
+}
+
+// Grade de mini-graficos, um por marca -- complementa o grafico principal, que
+// so tem espaco de cor pras TOP_N_COR maiores (o resto cai dentro de "Outros",
+// mesmo sendo marca identificada). Usa serie_por_marca (todas as marcas reais,
+// sem corte) e o MESMO intervalo Grafico-de/ate do grafico principal, pra nao
+// virar mais um filtro independente. Chart.js (via CDN) da tooltip de hover de
+// graca; se o script falhar (Artifact bloqueia CDN por CSP), cai pra um SVG
+// desenhado a mao com a mesma interpolacao monotona do grafico de area.
+var MULTIPLOS_TOP_N = 16;
+var chartsMultiplos = [];
+
+function renderMultiplos(){
+  chartsMultiplos.forEach(function(c){ c.destroy(); });
+  chartsMultiplos = [];
+
+  var dados = DADOS.campos[estado.campo];
+  var spm = dados.serie_por_marca;
+  var periodosTodos = spm.periodos_mensais;
+  var indices = [];
+  periodosTodos.forEach(function(p, i){
+    var ano = p.slice(0, 4);
+    if (ano >= estado.anoDeGrafico && ano <= estado.anoAteGrafico) indices.push(i);
+  });
+
+  var totais = Object.keys(spm.valores).map(function(marca){
+    var valores = indices.map(function(i){ return spm.valores[marca][i]; });
+    return { marca: marca, valores: valores, soma: valores.reduce(function(a, b){ return a + b; }, 0) };
+  }).filter(function(m){ return m.soma > 0.05; }).sort(function(a, b){ return b.soma - a.soma; });
+
+  var top = totais.slice(0, MULTIPLOS_TOP_N);
+  var rotuloPeriodo = estado.anoDeGrafico === estado.anoAteGrafico ? "em " + estado.anoDeGrafico : "entre " + estado.anoDeGrafico + " e " + estado.anoAteGrafico;
+  document.getElementById("legenda-multiplos-caption").textContent =
+    "As " + top.length + " maiores marcas " + rotuloPeriodo + ", cada uma na própria escala — inclui marcas que não entram nas " +
+    TOP_N_COR + " coloridas do gráfico principal (essas ficam dentro de \"Outros\" lá).";
+
+  var grade = document.getElementById("grade-multiplos");
+  limpar(grade);
+  var rotulosPeriodo = indices.map(function(i){ return periodosTodos[i]; });
+  // "Atual" usa o mes de referencia (ultimo_mes_completo), nao o ultimo indice
+  // do recorte -- que pode ser um mes com atraso de cadastro da ANEEL ainda
+  // aparecendo perto de zero, o que pareceria dado quebrado no rodape do card.
+  var idxAncora = periodosTodos.indexOf(dados.ultimo_mes_completo);
+  var ancoraNoRecorte = idxAncora >= 0 && indices.indexOf(idxAncora) >= 0;
+
+  top.forEach(function(item){
+    var card = el("div", { class:"card-multiplo" });
+    card.appendChild(el("div", { class:"card-multiplo-nome", text:item.marca }));
+    var pico = Math.max.apply(null, item.valores.concat([0]));
+    var atual = ancoraNoRecorte ? (spm.valores[item.marca][idxAncora] || 0) : (item.valores[item.valores.length - 1] || 0);
+
+    var wrapGrafico = el("div", { class:"card-multiplo-grafico" });
+    card.appendChild(wrapGrafico);
+
+    if (TEM_CHARTJS){
+      var canvas = el("canvas", {});
+      wrapGrafico.appendChild(canvas);
+      chartsMultiplos.push(new Chart(canvas, {
+        type: "line",
+        data: { labels: rotulosPeriodo, datasets: [{
+          data: item.valores, borderColor: "#00953b", backgroundColor: "rgba(0,149,59,0.15)",
+          fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0.3,
+        }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          plugins: { legend: { display:false }, tooltip: { displayColors:false,
+            callbacks: { title: function(itens){ return itens[0].label; }, label: function(item){ return fmtMW(item.parsed.y); } } } },
+          scales: { x: { display:false }, y: { display:false, beginAtZero:true } },
+          interaction: { mode:"index", intersect:false },
+        },
+      }));
+    } else {
+      var W = 150, H = 40;
+      var max = pico || 1;
+      var pontos = item.valores.map(function(v, i){
+        return { x: (i/(item.valores.length-1||1))*W, y: H - (v/max)*(H-2) - 1 };
+      });
+      var linha = caminhoMonotono(pontos, true);
+      var svg = svgEl("svg", { viewBox:"0 0 " + W + " " + H, preserveAspectRatio:"none" });
+      svg.appendChild(svgEl("path", { d: linha + " L" + W + "," + H + " L0," + H + " Z", fill:"var(--acento-fraco)" }));
+      svg.appendChild(svgEl("path", { d:linha, fill:"none", stroke:"var(--acento)", "stroke-width":"1.5" }));
+      wrapGrafico.appendChild(svg);
+    }
+
+    card.appendChild(el("div", { class:"card-multiplo-rodape", text: "pico " + fmtMW(pico) + " · atual " + fmtMW(atual) }));
+    grade.appendChild(card);
+  });
+}
+
+var MAX_MARCAS_COMPARADAS = 8;
+
+function renderMarcaEspecifica(){
+  var dados = DADOS.campos[estado.campo];
+  var spm = dados.serie_por_marca;
+  var nomesMarcas = Object.keys(spm.valores).sort(function(a,b){
+    var somaB = spm.valores[b].reduce(function(x,y){return x+y;},0);
+    var somaA = spm.valores[a].reduce(function(x,y){return x+y;},0);
+    return somaB - somaA;
+  });
+  estado.marcasComparadas = (estado.marcasComparadas || []).filter(function(m){ return nomesMarcas.includes(m); });
+  if (estado.marcasComparadas.length === 0) estado.marcasComparadas = [nomesMarcas[0]];
+
+  var noCap = estado.marcasComparadas.length >= MAX_MARCAS_COMPARADAS;
+  var disponiveis = nomesMarcas.filter(function(m){ return !estado.marcasComparadas.includes(m); });
+
+  var seletorContainer = document.getElementById("filtro-marca-especifica");
+  limpar(seletorContainer);
+  var sel = el("select", { "aria-label":"Adicionar marca à comparação" });
+  sel.appendChild(el("option", { value:"", text: noCap ? "Máximo atingido" : "+ Adicionar marca…" }));
+  disponiveis.forEach(function(nome){
+    var opt = document.createElement("option"); opt.value = nome; opt.textContent = nome; sel.appendChild(opt);
+  });
+  sel.disabled = noCap;
+  sel.value = "";
+  sel.addEventListener("change", function(){
+    if (sel.value && estado.marcasComparadas.length < MAX_MARCAS_COMPARADAS){
+      estado.marcasComparadas.push(sel.value);
+      renderMarcaEspecifica();
+    }
+  });
+  seletorContainer.appendChild(sel);
+  document.getElementById("aviso-marca-especifica").textContent = noCap ? "máximo de " + MAX_MARCAS_COMPARADAS + " marcas por vez" : "";
+
+  var chips = document.getElementById("chips-marca-especifica");
+  limpar(chips);
+  estado.marcasComparadas.forEach(function(nome, i){
+    var chip = el("div", { class:"chip" });
+    var sw = el("span", { class:"chip-swatch" }); sw.style.background = CORES[i % CORES.length];
+    chip.appendChild(sw);
+    chip.appendChild(el("span", { text: nome }));
+    if (estado.marcasComparadas.length > 1){
+      var btn = el("button", { type:"button", "aria-label":"Remover " + nome, text:"×" });
+      btn.addEventListener("click", function(){
+        estado.marcasComparadas = estado.marcasComparadas.filter(function(m){ return m !== nome; });
+        renderMarcaEspecifica();
+      });
+      chip.appendChild(btn);
+    }
+    chips.appendChild(chip);
+  });
+
+  var seriesPorMarca = estado.marcasComparadas.map(function(nome, i){
+    var completa = serieUnicaPorGranularidade(spm.periodos_mensais, spm.valores[nome], estado.granularidade);
+    var filtrada = completa.filter(function(p){
+      var ano = p.periodo.slice(0,4);
+      return ano >= estado.anoDeGrafico && ano <= estado.anoAteGrafico;
+    });
+    var total = filtrada.reduce(function(a,p){ return a+p.valor; }, 0);
+    var pico = filtrada.reduce(function(m,p){ return p.valor > m.valor ? p : m; }, {valor:-1, periodo:""});
+    return { nome:nome, cor:CORES[i % CORES.length], pontos:filtrada, total:total, pico:pico };
+  });
+
+  if (seriesPorMarca.length === 1){
+    var s0 = seriesPorMarca[0];
+    document.getElementById("legenda-marca-especifica-caption").textContent =
+      s0.nome + " instalou " + fmtMW(s0.total) + " em " + (estado.campo === "modulo" ? "módulos" : "inversores") +
+      " no período, com pico de " + fmtMW(s0.pico.valor) + " em " + s0.pico.periodo + ".";
+  } else {
+    var porTotal = seriesPorMarca.slice().sort(function(a,b){ return b.total - a.total; });
+    document.getElementById("legenda-marca-especifica-caption").textContent =
+      "Do maior pro menor no período: " + porTotal.map(function(s){ return s.nome + " (" + fmtMW(s.total) + ")"; }).join(", ") + ".";
+  }
+
+  var svg = document.getElementById("svg-marca-especifica");
+  limpar(svg);
+  var W = 1000, H = 260, ML = 54, MR = 14, MT = 12, MB = 30;
+  var largura = W - ML - MR, altura = H - MT - MB;
+  var todosValores = seriesPorMarca.reduce(function(acc, s){ return acc.concat(s.pontos.map(function(p){ return p.valor; })); }, []);
+  var maxValor = Math.max.apply(null, todosValores.concat([0.001]));
+  var passo = niceStep(maxValor, 4);
+  var maxEixo = Math.ceil(maxValor / passo) * passo + passo;
+  var n = seriesPorMarca[0].pontos.length;
+
+  for (var t = 0; t <= maxEixo; t += passo){
+    var y = MT + altura - (t / maxEixo) * altura;
+    svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: t>=1000 ? (t/1000).toFixed(1)+" GW" : Math.round(t) }));
+  }
+
+  var pontosPorSerie = seriesPorMarca.map(function(s){
+    return s.pontos.map(function(p, i){
+      var x = n > 1 ? ML + (i/(n-1)) * largura : ML + largura/2;
+      var y = MT + altura - (maxEixo > 0 ? (p.valor/maxEixo)*altura : 0);
+      return { x:x, y:y, periodo:p.periodo, valor:p.valor };
+    });
+  });
+
+  var comArea = seriesPorMarca.length === 1;
+  pontosPorSerie.forEach(function(pontos, s){
+    if (pontos.length < 2) return;
+    if (comArea){
+      var pathArea = "M" + pontos[0].x + "," + (MT+altura) + " " + pontos.map(function(pt){ return "L"+pt.x+","+pt.y; }).join(" ") + " L" + pontos[pontos.length-1].x + "," + (MT+altura) + " Z";
+      svg.appendChild(svgEl("path", { d:pathArea, fill:seriesPorMarca[s].cor, "fill-opacity":"0.12", stroke:"none" }));
+    }
+    var pathLinha = "M" + pontos.map(function(pt){ return pt.x+","+pt.y; }).join(" L");
+    svg.appendChild(svgEl("path", { d:pathLinha, fill:"none", stroke:seriesPorMarca[s].cor, "stroke-width":"2", "stroke-linejoin":"round", "stroke-linecap":"round" }));
+  });
+
+  var strideRotulo = Math.max(1, Math.ceil(n / 12));
+  var hitPorPeriodo = {};
+  pontosPorSerie.forEach(function(pontos, s){
+    pontos.forEach(function(pt, i){
+      if (s === 0 && (i % strideRotulo === 0 || i === n-1)){
+        svg.appendChild(svgEl("text", { class:"eixo-txt", x:pt.x, y:H-MB+16, "text-anchor":"middle", text:pt.periodo }));
+      }
+      svg.appendChild(svgEl("circle", { cx:pt.x, cy:pt.y, r:3, fill:seriesPorMarca[s].cor, stroke:"var(--superficie)", "stroke-width":"2", "pointer-events":"none" }));
+      if (!hitPorPeriodo[i]) hitPorPeriodo[i] = { x:pt.x, periodo:pt.periodo, linhas:[] };
+      hitPorPeriodo[i].linhas.push({ nome:seriesPorMarca[s].nome, cor:seriesPorMarca[s].cor, valor:fmtMW(pt.valor) });
+    });
+  });
+  Object.keys(hitPorPeriodo).forEach(function(i){
+    var info = hitPorPeriodo[i];
+    var hit = svgEl("rect", { class:"hitzone", x:info.x-(largura/n/2), y:MT, width:largura/n, height:altura, tabindex:"0", role:"img", "aria-label":info.periodo });
+    svg.appendChild(hit);
+    anexarHover(hit, function(mx,my){ mostrarTooltip(mx, my, info.periodo, info.linhas); });
+  });
+  svg.appendChild(svgEl("line", { class:"linha-zero", x1:ML, x2:W-MR, y1:MT+altura, y2:MT+altura }));
+}
+
+function renderLeaderboard(){
+  var dados = DADOS.campos[estado.campo];
+
+  montarSeletorPeriodo(document.getElementById("filtro-periodo-de"), dados, estado.periodoDe, function(v){ estado.periodoDe = v; renderLeaderboard(); });
+  montarSeletorPeriodo(document.getElementById("filtro-periodo-ate"), dados, estado.periodoAte, function(v){ estado.periodoAte = v; renderLeaderboard(); });
+
+  var linhasTodas = calcularLeaderboard(dados, estado.periodoDe, estado.periodoAte);
+
+  var ordenadaPP = linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
+  var subiuMais = ordenadaPP[0], caiuMais = ordenadaPP[ordenadaPP.length-1];
+  document.getElementById("legenda-leaderboard-caption").textContent =
+    "De " + rotuloExtenso(dados, estado.periodoDe) + " para " + rotuloExtenso(dados, estado.periodoAte) + ": " +
+    subiuMais.marca + " ganhou mais espaço (" + fmtPct(subiuMais.delta_pontos_percentuais) + " de participação), " +
+    "enquanto " + caiuMais.marca + " foi quem mais perdeu (" + fmtPct(caiuMais.delta_pontos_percentuais) + ").";
+
+  var metricaCampo = estado.metrica === "pontos" ? "delta_pontos_percentuais" : "delta_mw_absoluto";
+  var linhas = linhasTodas.slice().sort(function(a,b){ return b[metricaCampo] - a[metricaCampo]; });
+  var top = linhas.slice(0, 6);
+  var bottom = linhas.slice(-6).reverse();
+  var selecionadas = top.concat(bottom.filter(function(b){ return top.indexOf(b) === -1; }));
+
+  var svg = document.getElementById("svg-leaderboard");
+  limpar(svg);
+  var W = 1000, H = 40 + selecionadas.length * 30 + 20, ML = 190, MR = 90, MT = 10, MB = 10;
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  var largura = W - ML - MR;
+  var maxAbs = Math.max.apply(null, selecionadas.map(function(l){ return Math.abs(l[metricaCampo]); }).concat([1]));
+  var escala = (largura/2 - 8) / (maxAbs * 1.15);
+  var cx = ML + largura/2;
+
+  svg.appendChild(svgEl("line", { class:"linha-zero", x1:cx, x2:cx, y1:MT, y2:H-MB }));
+
+  selecionadas.forEach(function(l, i){
+    var y = MT + i * 30 + 6;
+    var valor = l[metricaCampo];
+    var largBarra = Math.abs(valor) * escala;
+    var positivo = valor >= 0;
+    var x0 = positivo ? cx : cx - largBarra;
+    var barra = svgEl("rect", { x:x0, y:y, width:Math.max(1,largBarra), height:18, rx:3, fill: positivo ? "var(--bom)" : "var(--mau)" });
+    svg.appendChild(barra);
+    svg.appendChild(svgEl("text", { class:"marca-rotulo", x: ML - 10, y: y+13, "text-anchor":"end", text: l.marca }));
+    var rotuloTxt = estado.metrica === "pontos" ? fmtPct(valor) : fmtMW(Math.abs(valor)) + (valor>=0?" ganho":" perda");
+    if (l.entrante_novo) rotuloTxt = "novo";
+    var rx = positivo ? cx + largBarra + 8 : cx - largBarra - 8;
+    svg.appendChild(svgEl("text", { class:"barra-rotulo forte", x:rx, y:y+13, "text-anchor": positivo ? "start" : "end", text: rotuloTxt }));
+
+    var hit = svgEl("rect", { class:"hitzone", x:ML, y:y-4, width:largura, height:26, tabindex:"0", role:"img", "aria-label": l.marca });
+    svg.appendChild(hit);
+    (function(item){
+      anexarHover(hit, function(mx,my){
+        var linhasTip = [
+          { nome:"Share " + dados.periodos.rotulos[estado.periodoDe], valor: item.share_inicial_pct.toFixed(2) + "%" },
+          { nome:"Share " + dados.periodos.rotulos[estado.periodoAte], valor: item.share_final_pct.toFixed(2) + "%" },
+          { nome:"MW " + dados.periodos.rotulos[estado.periodoDe], valor: fmtMW(item.mw_inicial) },
+          { nome:"MW " + dados.periodos.rotulos[estado.periodoAte], valor: fmtMW(item.mw_final) }
+        ];
+        if (!item.entrante_novo && item.crescimento_relativo_pct !== null){
+          linhasTip.push({ nome:"Crescimento relativo", valor: (item.crescimento_relativo_pct>=0?"+":"") + item.crescimento_relativo_pct.toFixed(0) + "%" });
+        } else if (item.entrante_novo){
+          linhasTip.push({ nome:"Situação", valor:"Marca nova no período" });
+        }
+        mostrarTooltip(mx, my, item.marca, linhasTip);
+      });
+    })(l);
+  });
+
+  var tabela = document.getElementById("tabela-leaderboard");
+  limpar(tabela);
+  var thead = el("thead"); var trh = el("tr");
+  ["Marca","MW inicial","MW final","Share inicial","Share final","Δ p.p.","Cresc. relativo"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody");
+  linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; }).forEach(function(l){
+    var tr = el("tr");
+    tr.appendChild(el("td", {text:l.marca}));
+    tr.appendChild(el("td", {text:fmtMW(l.mw_inicial)}));
+    tr.appendChild(el("td", {text:fmtMW(l.mw_final)}));
+    tr.appendChild(el("td", {text:l.share_inicial_pct.toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:l.share_final_pct.toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:fmtPct(l.delta_pontos_percentuais)}));
+    tr.appendChild(el("td", {text: l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null?"—":(l.crescimento_relativo_pct>=0?"+":"")+l.crescimento_relativo_pct.toFixed(0)+"%")}));
+    tbody.appendChild(tr);
+  });
+  tabela.appendChild(tbody);
+}
+
+// Motor generico por tras de Faixa/Classe/Tarifa/Distribuidora -- as quatro secoes
+// sao a mesma mecanica (barra empilhada por marca + tabela de especialistas) sobre
+// uma coluna categorica diferente. cfg.duasPontas liga a legenda de contraste
+// (usada so em faixa, onde "menor instalacao" vs "maior instalacao" e um eixo com
+// sentido de negocio -- pras outras colunas isso seria uma comparacao artificial,
+// entao usam a legenda de uma ponta so).
+function renderCategoria(cfg){
+  var dados = DADOS.campos[estado.campo];
+  var marcas = dados.marcas_cor;
+  var categorias = dados[cfg.chaveOrdem] || [];
+  var periodo = estado.periodoGlobal;
+  var catMw = dados.periodos[cfg.chaveMw][periodo] || {};
+  var perfil = dados.periodos[cfg.chavePerfil][periodo] || {};
+  var especialistas = dados.periodos[cfg.chaveEspecialistas][periodo] || {};
+
+  var linhas = categorias.map(function(c){
+    var porMarca = catMw[c] || {};
+    var valores = marcas.map(function(m){ return porMarca[m] || 0; });
+    var p = perfil[c] || [0, 0];
+    return { categoria: c, valores_mw: valores, total_mw: p[0], instalacoes: p[1] };
+  });
+  var totalGeral = linhas.reduce(function(a, l){ return a + l.total_mw; }, 0);
+
+  renderLegenda(document.getElementById(cfg.idLegenda), marcas);
+
+  // "Outras X" e um balde residual (dezenas de entidades somadas), nao uma categoria
+  // real -- excluido da escolha de "maior categoria" pra nao coroar o balde so
+  // porque ele soma mais que qualquer entidade individual do top. Ainda aparece
+  // normalmente no grafico e na tabela de especialistas, so nao no superlativo.
+  var comMw = linhas.filter(function(l){ return l.total_mw > 0 && l.categoria !== cfg.rotuloOutros; });
+  var maior = comMw.slice().sort(function(a,b){ return b.total_mw - a.total_mw; })[0];
+  var texto = "";
+  if (maior){
+    var espMaior = (especialistas[maior.categoria] || [])[0];
+    texto = maior.categoria + " é " + cfg.artigo + " maior " + cfg.rotuloSingular + " " + emPeriodo(dados, periodo) + ", com " +
+      fmtMW(maior.total_mw) + " (" + (totalGeral>0?maior.total_mw/totalGeral*100:0).toFixed(0) +
+      "% da potência em " + maior.instalacoes.toLocaleString("pt-BR") + " instalações)" +
+      (espMaior ? ", e " + espMaior[0] + " é a marca mais presente lá (" + espMaior[1].toFixed(1) + "%" +
+        (espMaior[3] ? ", " + espMaior[3].toFixed(1) + "× a participação geral dela" : "") + ")" : "") + ".";
+    if (cfg.duasPontas && comMw.length > 1){
+      var topo = comMw[comMw.length-1];
+      var espTopo = (especialistas[topo.categoria] || [])[0];
+      if (espTopo && espTopo[0] !== (espMaior && espMaior[0])){
+        texto += " Já em " + topo.categoria + " quem lidera é " + espTopo[0] + " com " + espTopo[1].toFixed(1) + "%" +
+          (espTopo[3] ? " (" + espTopo[3].toFixed(1) + "× a participação que ela tem no mercado como um todo)" : "") +
+          ". " + cfg.rotuloPlural + " diferentes, líderes diferentes.";
+      }
+    }
+  }
+  document.getElementById(cfg.idCaption).textContent = texto;
+
+  var svg = document.getElementById(cfg.idSvg);
+  limpar(svg);
+  var n = linhas.length;
+  var W = 1000, ML = 150, MR = 76, MT = 6, MB = 6;
+  var alturaLinha = 22, gapLinha = 4;
+  var H = MT + Math.max(n,1) * (alturaLinha+gapLinha) + MB;
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  var largura = W - ML - MR;
+  var maxTotal = Math.max.apply(null, linhas.map(function(l){ return l.total_mw; }).concat([1]));
+
+  linhas.forEach(function(l, i){
+    var y = MT + i * (alturaLinha+gapLinha);
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+alturaLinha/2+3, "text-anchor":"end", text:l.categoria }));
+    var xAcum = ML;
+    marcas.forEach(function(nome, s){
+      var v = l.valores_mw[s];
+      var larg = maxTotal>0 ? (v/maxTotal)*largura : 0;
+      var gap = larg>3 ? 1 : 0;
+      if (larg > gap*2){
+        svg.appendChild(svgEl("rect", { class:"segmento", x:xAcum+gap, y:y, width:larg-gap*2, height:alturaLinha, fill:CORES[s] }));
+      }
+      xAcum += larg;
+    });
+    svg.appendChild(svgEl("text", { class:"barra-rotulo", x:xAcum+8, y:y+alturaLinha/2+3, "text-anchor":"start", text:fmtMW(l.total_mw) }));
+
+    var hit = svgEl("rect", { class:"hitzone", x:ML, y:y, width:largura+MR-8, height:alturaLinha, tabindex:"0", role:"img", "aria-label": l.categoria });
+    svg.appendChild(hit);
+    (function(row){
+      anexarHover(hit, function(mx,my){
+        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(row.valores_mw[s]) }; })
+          .filter(function(t, idx){ return row.valores_mw[idx] > 0.0005; })
+          .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
+        mostrarTooltip(mx, my, row.categoria + " · " + row.instalacoes.toLocaleString("pt-BR") + " instalações", tips, fmtMW(row.total_mw));
+      });
+    })(l);
+  });
+
+  document.getElementById(cfg.idExplicacao).textContent =
+    "Índice = participação da marca naquela " + cfg.rotuloSingular + " ÷ participação dela no mercado todo. " +
+    "Acima de 1 significa que a marca é mais forte ali do que no geral; 3× quer dizer três vezes mais concentrada. " +
+    "As marcas aqui não estão restritas às 10 coloridas do gráfico: especialistas de nicho aparecem sem esse corte.";
+
+  var tabela = document.getElementById(cfg.idTabela);
+  limpar(tabela);
+  var thead = el("thead"); var trh = el("tr");
+  [cfg.rotuloColuna,"Marca","Share na categoria","Share geral","Índice"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody");
+  categorias.forEach(function(c){
+    (especialistas[c] || []).slice(0, 3).forEach(function(item, idx){
+      var tr = el("tr");
+      tr.appendChild(el("td", { text: idx === 0 ? c : "" }));
+      tr.appendChild(el("td", { text: item[0] }));
+      tr.appendChild(el("td", { text: item[1].toFixed(2) + "%" }));
+      tr.appendChild(el("td", { text: item[2].toFixed(2) + "%" }));
+      var tdIdx = el("td", { text: item[3] == null ? "—" : item[3].toFixed(1) + "×" });
+      if (item[3] != null && item[3] >= 1.5) tdIdx.className = "forte";
+      tr.appendChild(tdIdx);
+      tbody.appendChild(tr);
+    });
+  });
+  tabela.appendChild(tbody);
+}
+
+function renderFaixa(){
+  renderCategoria({
+    chaveOrdem:"faixas_ordem", chaveMw:"faixa_mw", chavePerfil:"faixa_perfil", chaveEspecialistas:"faixa_especialistas",
+    idLegenda:"legenda-faixa", idCaption:"legenda-faixa-caption", idSvg:"svg-faixa",
+    idExplicacao:"explicacao-especialistas-faixa", idTabela:"tabela-faixa", rotuloColuna:"Faixa",
+    artigo:"a", rotuloSingular:"faixa", rotuloPlural:"Faixas", duasPontas:true,
+  });
+}
+
+function renderClasse(){
+  renderCategoria({
+    chaveOrdem:"classes_ordem", chaveMw:"classe_mw", chavePerfil:"classe_perfil", chaveEspecialistas:"classe_especialistas",
+    idLegenda:"legenda-classe", idCaption:"legenda-classe-caption", idSvg:"svg-classe",
+    idExplicacao:"explicacao-especialistas-classe", idTabela:"tabela-classe", rotuloColuna:"Classe",
+    artigo:"a", rotuloSingular:"classe de consumo", rotuloPlural:"Classes", duasPontas:false,
+  });
+}
+
+function renderTarifa(){
+  renderCategoria({
+    chaveOrdem:"tarifas_ordem", chaveMw:"tarifa_mw", chavePerfil:"tarifa_perfil", chaveEspecialistas:"tarifa_especialistas",
+    idLegenda:"legenda-tarifa", idCaption:"legenda-tarifa-caption", idSvg:"svg-tarifa",
+    idExplicacao:"explicacao-especialistas-tarifa", idTabela:"tabela-tarifa", rotuloColuna:"Grupo tarifário",
+    artigo:"o", rotuloSingular:"grupo tarifário", rotuloPlural:"Grupos tarifários", duasPontas:false,
+  });
+}
+
+function renderDistribuidora(){
+  renderCategoria({
+    chaveOrdem:"distribuidoras_ordem", chaveMw:"distribuidora_mw", chavePerfil:"distribuidora_perfil", chaveEspecialistas:"distribuidora_especialistas",
+    idLegenda:"legenda-distribuidora", idCaption:"legenda-distribuidora-caption", idSvg:"svg-distribuidora",
+    idExplicacao:"explicacao-especialistas-distribuidora", idTabela:"tabela-distribuidora", rotuloColuna:"Distribuidora",
+    artigo:"a", rotuloSingular:"distribuidora", rotuloPlural:"Distribuidoras", duasPontas:false,
+    rotuloOutros:"Outras distribuidoras",
+  });
+}
+
+// Motor generico por tras do drill-down Brasil > Regiao > Estado > Municipio --
+// as tres primeiras camadas usam o mesmo top-10 global (marcas_cor); municipio usa
+// o top-10 local por UF (marcas_por_uf), exatamente como antes -- isso ja era
+// intencional (marca so relevante num estado especifico nao devia perder a cor por
+// nao ser top-10 do Brasil inteiro).
+function desenharBarrasGeo(svgId, linhas, marcas, opts){
+  opts = opts || {};
+  var svg = document.getElementById(svgId);
+  limpar(svg);
+  var n = linhas.length;
+  var W = 1000, ML = opts.ML || 100, MR = 70, MT = 6, MB = 6;
+  var alturaLinha = 20, gapLinha = 2;
+  var H = MT + Math.max(n,1) * (alturaLinha+gapLinha) + MB;
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  var largura = W - ML - MR;
+  var maxTotal = Math.max.apply(null, linhas.map(function(l){ return l.total_mw; }).concat([1]));
+
+  linhas.forEach(function(l, i){
+    var y = MT + i * (alturaLinha+gapLinha);
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+alturaLinha/2+3, "text-anchor":"end", text: l.nome }));
+    var xAcum = ML;
+    marcas.forEach(function(nome, s){
+      var v = l.valores_mw[s];
+      var larg = maxTotal>0 ? (v/maxTotal)*largura : 0;
+      var gap = larg>3 ? 1 : 0;
+      if (larg > gap*2){
+        svg.appendChild(svgEl("rect", { class:"segmento", x:xAcum+gap, y:y, width:larg-gap*2, height:alturaLinha, fill:CORES[s] }));
+      }
+      xAcum += larg;
+    });
+    svg.appendChild(svgEl("text", { class:"barra-rotulo", x:xAcum+8, y:y+alturaLinha/2+3, "text-anchor":"start", text:fmtMW(l.total_mw) }));
+
+    var hit = svgEl("rect", {
+      class:"hitzone", x:ML, y:y, width:largura+MR-8, height:alturaLinha, tabindex:"0", role:"img",
+      "aria-label": l.nome + (opts.onClick ? " -- clique para explorar" : ""),
+    });
+    if (opts.onClick) hit.style.cursor = "pointer";
+    svg.appendChild(hit);
+    (function(row){
+      anexarHover(hit, function(mx,my){
+        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(row.valores_mw[s]) }; })
+          .filter(function(t, idx){ return row.valores_mw[idx] > 0.0005; })
+          .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
+        mostrarTooltip(mx, my, row.nome + (row.sub ? " · " + row.sub : ""), tips, fmtMW(row.total_mw));
+      });
+      if (opts.onClick){
+        hit.addEventListener("click", function(){ opts.onClick(row); });
+        hit.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); opts.onClick(row); } });
+      }
+    })(l);
+  });
+}
+
+function ufsDaRegiao(dados, regiao){
+  var mapa = dados.uf_regiao || {};
+  return Object.keys(mapa).filter(function(uf){ return mapa[uf] === regiao; }).sort();
+}
+
+function regioesDisponiveis(dados){
+  var mapa = dados.uf_regiao || {};
+  var vistos = {};
+  Object.keys(mapa).forEach(function(uf){ vistos[mapa[uf]] = true; });
+  return Object.keys(vistos).sort();
+}
+
+function renderBreadcrumbGeo(){
+  var cont = document.getElementById("geo-breadcrumb");
+  limpar(cont);
+  var brasil = el("button", { type:"button", text:"Brasil" });
+  brasil.setAttribute("aria-pressed", String(estado.geoNivel === "regiao"));
+  brasil.addEventListener("click", function(){ estado.geoNivel = "regiao"; estado.geoRegiaoAtual = null; renderGeografia(); });
+  cont.appendChild(brasil);
+  if (estado.geoRegiaoAtual){
+    cont.appendChild(el("span", { class:"filtro-seta", text:"›" }));
+    var btnReg = el("button", { type:"button", text: estado.geoRegiaoAtual });
+    btnReg.setAttribute("aria-pressed", String(estado.geoNivel === "uf"));
+    btnReg.addEventListener("click", function(){ estado.geoNivel = "uf"; renderGeografia(); });
+    cont.appendChild(btnReg);
+  }
+  if (estado.geoNivel === "municipio"){
+    cont.appendChild(el("span", { class:"filtro-seta", text:"›" }));
+    var btnUf = el("button", { type:"button", text: estado.estadoGlobal });
+    btnUf.setAttribute("aria-pressed", "true");
+    cont.appendChild(btnUf);
+  }
+}
+
+function renderGeografia(){
+  var dados = DADOS.campos[estado.campo];
+  var periodo = estado.periodoGlobal;
+  renderBreadcrumbGeo();
+  if (estado.geoNivel === "regiao"){
+    renderGeoRegioes(dados, periodo);
+  } else if (estado.geoNivel === "uf"){
+    renderGeoUfs(dados, periodo, estado.geoRegiaoAtual);
+  } else {
+    renderGeoMunicipios(dados, periodo, estado.estadoGlobal);
+  }
+}
+
+function renderGeoRegioes(dados, periodo){
+  var marcas = dados.marcas_cor;
+  var ufMw = dados.periodos.uf_mw[periodo] || {};
+  var linhas = regioesDisponiveis(dados).map(function(reg){
+    var ufs = ufsDaRegiao(dados, reg);
+    var valores = marcas.map(function(){ return 0; });
+    ufs.forEach(function(uf){
+      var porMarca = ufMw[uf] || {};
+      marcas.forEach(function(m, i){ valores[i] += porMarca[m] || 0; });
+    });
+    var total = valores.reduce(function(a,b){ return a+b; }, 0);
+    return { nome: reg, valores_mw: valores, total_mw: total, sub: ufs.length + " estados" };
+  }).sort(function(a,b){ return b.total_mw - a.total_mw; });
+
+  renderLegenda(document.getElementById("geo-legend"), marcas);
+  var lider = linhas[0];
+  document.getElementById("geo-caption").textContent = lider
+    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emPeriodo(dados, periodo) +
+      " entre as 5 regiões do Brasil. Clique numa região para ver os estados."
+    : "";
+  document.getElementById("geo-tabela-detalhe").hidden = true;
+  desenharBarrasGeo("svg-geo", linhas, marcas, {
+    ML: 104,
+    onClick: function(row){ estado.geoRegiaoAtual = row.nome; estado.geoNivel = "uf"; renderGeografia(); },
+  });
+}
+
+function renderGeoUfs(dados, periodo, regiao){
+  var marcas = dados.marcas_cor;
+  var ufMw = dados.periodos.uf_mw[periodo] || {};
+  var ufLideres = dados.periodos.uf_lideres[periodo] || {};
+  var linhas = ufsDaRegiao(dados, regiao).map(function(uf){
+    var porMarca = ufMw[uf] || {};
+    var valores = marcas.map(function(m){ return porMarca[m] || 0; });
+    var total = valores.reduce(function(a,b){ return a+b; }, 0);
+    return { nome: uf, valores_mw: valores, total_mw: total };
+  }).sort(function(a,b){ return b.total_mw - a.total_mw; });
+
+  renderLegenda(document.getElementById("geo-legend"), marcas);
+  var lider = linhas[0];
+  var liderReal = lider ? (ufLideres[lider.nome] || {}) : {};
+  document.getElementById("geo-caption").textContent = lider
+    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emPeriodo(dados, periodo) + " entre os estados de " +
+      regiao + ", com " + (liderReal.nome || "—") + " como marca mais presente lá. Clique num estado para ver os municípios."
+    : "Nenhum estado de " + regiao + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
+  document.getElementById("geo-tabela-detalhe").hidden = true;
+  desenharBarrasGeo("svg-geo", linhas, marcas, {
+    ML: 46,
+    onClick: function(row){ estado.estadoGlobal = row.nome; estado.geoNivel = "municipio"; renderGeografia(); },
+  });
+}
+
+function renderGeoMunicipios(dados, periodo, uf){
+  var info = dados.municipios_info || {};
+  var brutos = dados.periodos.municipios_mw[periodo] || {};
+  var marcas = dados.marcas_por_uf[uf] || dados.marcas_cor;
+
+  var linhas = Object.keys(brutos)
+    .filter(function(cod){ var inf = info[cod]; return inf && inf[1] === uf; })
+    .map(function(cod){
+      var inf = info[cod], v = brutos[cod];
+      return { nome: inf[0], valores_mw: v.valores_mw, total_mw: v.mw, marcaLider: v.marca_lider_nome || "—" };
+    })
+    .sort(function(a,b){ return b.total_mw - a.total_mw; });
+  var totalUf = linhas.reduce(function(a,m){ return a + m.total_mw; }, 0);
+
+  renderLegenda(document.getElementById("geo-legend"), marcas);
+  document.getElementById("geo-caption").textContent = linhas.length
+    ? linhas[0].nome + " lidera entre os " + linhas.length + " municípios de " + uf + " " + emPeriodo(dados, periodo) + ", com " +
+      fmtMW(linhas[0].total_mw) + " (" + (totalUf>0?linhas[0].total_mw/totalUf*100:0).toFixed(1) + "% do estado), e " +
+      linhas[0].marcaLider + " é a marca líder lá."
+    : "Nenhum município de " + uf + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
+
+  desenharBarrasGeo("svg-geo", linhas.slice(0, 20), marcas, { ML: 130 });
+
+  var detalhe = document.getElementById("geo-tabela-detalhe");
+  detalhe.hidden = false;
+  var tabela = document.getElementById("tabela-geo");
+  limpar(tabela);
+  var thead = el("thead"); var trh = el("tr");
+  ["#","Município","MW","% do estado","Marca líder"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody");
+  linhas.forEach(function(m, i){
+    var tr = el("tr");
+    tr.appendChild(el("td", {text:String(i+1)}));
+    tr.appendChild(el("td", {text:m.nome}));
+    tr.appendChild(el("td", {text:fmtMW(m.total_mw)}));
+    tr.appendChild(el("td", {text:(totalUf>0?m.total_mw/totalUf*100:0).toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:m.marcaLider}));
+    tbody.appendChild(tr);
+  });
+  tabela.appendChild(tbody);
+}
+
+function renderRanking(){
+  var dados = DADOS.campos[estado.campo];
+
+  montarFiltro(document.getElementById("filtro-top-n"), [
+    { label:"Top 10", valor:"10" }, { label:"Top 15", valor:"15" }, { label:"Top 20", valor:"20" }, { label:"Todas", valor:"todas" }
+  ], estado.topN, function(v){ estado.topN = v; renderRanking(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#filtro-top-n button"), function(btn){
+    btn.setAttribute("aria-pressed", String(btn.textContent === (estado.topN === "todas" ? "Todas" : "Top " + estado.topN)));
+  });
+
+  var marcasMw = dados.periodos.marcas_mw[estado.periodoGlobal] || {};
+  var totalMw = dados.periodos.totais_mw[estado.periodoGlobal] || 0;
+  var linhas = Object.keys(marcasMw).map(function(marca){
+    var mw = marcasMw[marca];
+    return { marca: marca, mw: mw, share: totalMw > 0 ? mw/totalMw*100 : 0 };
+  }).sort(function(a,b){ return b.mw - a.mw; });
+
+  var limite = estado.topN === "todas" ? linhas.length : parseInt(estado.topN, 10);
+  var mostradas = linhas.slice(0, limite);
+  var restoMw = linhas.slice(limite).reduce(function(acc,l){ return acc + l.mw; }, 0);
+  var naoInformadoMw = totalMw - linhas.reduce(function(acc,l){ return acc + l.mw; }, 0);
+
+  var top3Soma = linhas.slice(0, 3).reduce(function(a,l){ return a+l.share; }, 0);
+  document.getElementById("legenda-ranking-caption").textContent =
+    linhas.length + " marcas de " + (estado.campo === "modulo" ? "módulo" : "inversor") + " disputam espaço " +
+    emPeriodo(dados, estado.periodoGlobal) + "; as 3 maiores (" +
+    linhas.slice(0,3).map(function(l){ return l.marca; }).join(", ") + ") somam " + top3Soma.toFixed(0) + "% do mercado.";
+
+  var tabela = document.getElementById("tabela-ranking");
+  limpar(tabela);
+  var thead = el("thead"); var trh = el("tr");
+  ["#","Marca","MW","Participação"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody");
+  mostradas.forEach(function(l, i){
+    var tr = el("tr");
+    tr.appendChild(el("td", {text:String(i+1)}));
+    tr.appendChild(el("td", {text:l.marca}));
+    tr.appendChild(el("td", {text:fmtMW(l.mw)}));
+    tr.appendChild(el("td", {text:l.share.toFixed(2)+"%"}));
+    tbody.appendChild(tr);
+  });
+  if (limite < linhas.length){
+    var restantes = linhas.slice(limite);
+    var trResto = el("tr", { class:"linha-expansivel", tabindex:"0", role:"button",
+      "aria-expanded": String(estado.restoExpandido),
+      "aria-label": (estado.restoExpandido ? "Recolher" : "Expandir") + " lista de outras marcas identificadas" });
+    trResto.style.cursor = "pointer";
+    var tdMarcador = el("td", { text: estado.restoExpandido ? "▾" : "▸" });
+    trResto.appendChild(tdMarcador);
+    trResto.appendChild(el("td", {text:"Outras " + restantes.length + " marcas identificadas (clique para ver quais)"}));
+    trResto.appendChild(el("td", {text:fmtMW(restoMw)}));
+    trResto.appendChild(el("td", {text:(totalMw>0?restoMw/totalMw*100:0).toFixed(2)+"%"}));
+    var alternar = function(){ estado.restoExpandido = !estado.restoExpandido; renderRanking(); };
+    trResto.addEventListener("click", alternar);
+    trResto.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); alternar(); } });
+    tbody.appendChild(trResto);
+
+    if (estado.restoExpandido){
+      restantes.forEach(function(l, i){
+        var tr = el("tr", { class:"linha-detalhe" });
+        tr.appendChild(el("td", {text:String(limite+i+1)}));
+        tr.appendChild(el("td", {text:l.marca}));
+        tr.appendChild(el("td", {text:fmtMW(l.mw)}));
+        tr.appendChild(el("td", {text:l.share.toFixed(2)+"%"}));
+        tbody.appendChild(tr);
+      });
+    }
+  }
+  var trNaoInf = el("tr");
+  trNaoInf.appendChild(el("td", {text:""}));
+  trNaoInf.appendChild(el("td", {text:"Não identificado / não informado"}));
+  trNaoInf.appendChild(el("td", {text:fmtMW(naoInformadoMw)}));
+  trNaoInf.appendChild(el("td", {text:(totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)+"%"}));
+  tbody.appendChild(trNaoInf);
+  tabela.appendChild(tbody);
+
+  document.getElementById("explicacao-nao-identificado").textContent =
+    "Amostra acumulada desde o início dos dados (não filtra por período, porque o texto bruto original não é " +
+    "guardado no agregado) dos maiores textos de fabricante de " + (estado.campo === "modulo" ? "módulo" : "inversor") +
+    " que o classificador não conseguiu associar a nenhuma marca conhecida. Reconhece algum? Preencha a coluna " +
+    "\"correcao_marca\" na linha correspondente em revisao_outros_" + estado.campo + ".csv e rode montar_mapa_marcas.py de novo.";
+  var tabelaNi = document.getElementById("tabela-nao-identificado");
+  limpar(tabelaNi);
+  var theadNi = el("thead"); var trhNi = el("tr");
+  ["Texto bruto","MW","% do total"].forEach(function(h){ trhNi.appendChild(el("th", {text:h})); });
+  theadNi.appendChild(trhNi); tabelaNi.appendChild(theadNi);
+  var tbodyNi = el("tbody");
+  (dados.amostra_nao_identificado || []).forEach(function(a){
+    var tr = el("tr");
+    tr.appendChild(el("td", {text:a.exemplo_bruto}));
+    tr.appendChild(el("td", {text:fmtMW(a.mw)}));
+    tr.appendChild(el("td", {text:a.pct_do_total_kw.toFixed(2)+"%"}));
+    tbodyNi.appendChild(tr);
+  });
+  tabelaNi.appendChild(tbodyNi);
+}
+
+function renderTudo(){
+  document.getElementById("subtitulo").innerHTML = "";
+  var sub = document.getElementById("subtitulo");
+  limpar(sub);
+  var descarte = DADOS.campos[estado.campo].meses_recentes_descartados_por_atraso;
+  var ultimo = DADOS.campos[estado.campo].ultimo_mes_completo;
+  sub.appendChild(document.createTextNode(
+    "Instalações fotovoltaicas de geração distribuída conectadas desde 2020, por marca de "
+  ));
+  var strong = el("strong", { text: estado.campo === "modulo" ? "módulo" : "inversor" });
+  sub.appendChild(strong);
+  sub.appendChild(document.createTextNode(
+    ". Todos os valores em MW de potência instalada (não quantidade de equipamentos); módulo e inversor usam a mesma unidade. Os últimos " + descarte +
+    " mês(es) de dados brutos ficam fora dos períodos de comparação: a ANEEL ainda está processando cadastros recentes, então eles aparecem artificialmente baixos até o mês de referência (" + ultimo + ")."
+  ));
+
+  montarFiltrosGlobais();
+  renderTendencia();
+  renderMarcaEspecifica();
+  renderLeaderboard();
+  renderRanking();
+  renderFaixa();
+  renderClasse();
+  renderTarifa();
+  renderDistribuidora();
+  renderGeografia();
+
+  var rodape = document.getElementById("rodape");
+  limpar(rodape);
+  rodape.appendChild(el("p", { text: "Fonte: dados abertos da ANEEL (empreendimento-geracao-distribuida e informações técnicas fotovoltaica). Marcas normalizadas a partir de texto livre via mapeamento próprio (montar_mapa_marcas.py); divergências residuais caem em \"Outros\"." }));
+  rodape.appendChild(el("p", { text: "Gerado em " + DADOS.gerado_em + "." }));
+}
+
+function montarPainelAjuda(){
+  var painel = document.getElementById("painel-ajuda");
+  var itens = [
+    ["O que dá pra descobrir aqui",
+     "Quais marcas de painel solar e de inversor estão ganhando espaço no Brasil, e em que lugares isso está acontecendo. " +
+     "Os dados são da ANEEL (o órgão que regula energia no país) e cobrem as instalações solares residenciais e comerciais registradas desde 2020."],
+    ["Participação de mercado ao longo do tempo",
+     "Quantos MW de cada marca foram instalados, mês a mês. Use \"Gráfico de\" / \"até\" pra focar num intervalo, ou troque entre visão mensal, " +
+     "trimestral e anual. Passe o mouse numa barra pra ver os números."],
+    ["Comparar marcas específicas",
+     "Escolha até 8 marcas pra ver a trajetória delas isoladas, sem o resto do gráfico atrapalhando. Bom pra marcas menores que não aparecem em destaque."],
+    ["Quem ganhou e quem perdeu espaço",
+     "Escolha dois períodos (dois anos, ou os últimos 12 meses) e veja de cara quem cresceu e quem encolheu em participação de mercado entre eles."],
+    ["Ranking completo de marcas",
+     "Todas as marcas identificadas num período, do maior pro menor volume instalado, sem se limitar às que aparecem coloridas no gráfico principal."],
+    ["Comportamento por faixa de potência",
+     "Quais marcas se destacam em cada tamanho de instalação, do telhado residencial (≤10 kW) até usinas de minigeração (1–5 MW). " +
+     "Uma marca pode liderar num porte e quase não aparecer em outro (75 kW é o limite legal entre micro e minigeração)."],
+    ["Comportamento por classe de consumo / grupo tarifário / distribuidora",
+     "O mesmo tipo de recorte, sob três outras lentes: quem vende mais para residências ou para indústria, em qual grupo tarifário, " +
+     "e se a força de uma marca muda conforme a distribuidora (concessionária) da região."],
+    ["Comportamento geográfico",
+     "Navegue do Brasil até a cidade: clique numa região pra ver os estados dela, e num estado pra ver os municípios. " +
+     "O seletor \"Estado\" no cabeçalho é um atalho pro município que você já quer ver."],
+    ["Por que \"Outros\" existe",
+     "Quem cadastra o projeto na ANEEL digita o nome do fabricante à mão, então a mesma marca aparece escrita de formas diferentes " +
+     "(\"JINKO\" e \"JINKO SOLAR\" são a mesma coisa). Juntamos essas variações automaticamente; o que não dá pra reconhecer com segurança " +
+     "cai em \"Outros\", em vez de arriscar um palpite errado. Dá pra ver o que tem dentro desse grupo na seção de Ranking."],
+  ];
+  itens.forEach(function(item){
+    var div = el("div", { class:"ajuda-item" });
+    div.appendChild(el("h3", { text: item[0] }));
+    div.appendChild(el("p", { text: item[1] }));
+    painel.appendChild(div);
+  });
+
+  var botao = document.getElementById("botao-ajuda");
+  botao.addEventListener("click", function(){
+    var aberto = botao.getAttribute("aria-expanded") === "true";
+    botao.setAttribute("aria-expanded", String(!aberto));
+    painel.hidden = aberto;
+  });
+}
+montarPainelAjuda();
+
+// Botao flutuante de topo/volta: alterna entre "subir pro topo" (lembrando de onde
+// saiu) e "voltar" pra essa posicao lembrada. So dois estados, um round-trip --
+// nao e um historico completo de navegacao, so um atalho pro ponto anterior.
+function montarBotaoTopo(){
+  var botao = document.getElementById("botao-topo");
+  var LIMIAR = 320;
+  var modo = "topo";
+  var posAnterior = 0;
+
+  function atualizar(){
+    if (modo === "voltar"){
+      botao.innerHTML = '<span aria-hidden="true">↓</span>';
+      botao.setAttribute("aria-label", "Voltar para onde você estava");
+      botao.hidden = false;
+    } else {
+      botao.innerHTML = '<span aria-hidden="true">↑</span>';
+      botao.setAttribute("aria-label", "Ir para o início");
+      botao.hidden = window.scrollY < LIMIAR;
+    }
+  }
+
+  botao.addEventListener("click", function(){
+    if (modo === "topo"){
+      posAnterior = window.scrollY;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      modo = "voltar";
+    } else {
+      window.scrollTo({ top: posAnterior, behavior: "smooth" });
+      modo = "topo";
+    }
+    atualizar();
+  });
+
+  window.addEventListener("scroll", atualizar, { passive: true });
+  atualizar();
+}
+montarBotaoTopo();
+
+montarFiltro(document.getElementById("filtro-campo"), [
+  { label:"Módulo", valor:"modulo" }, { label:"Inversor", valor:"inversor" }
+], estado.campo, function(v){ estado.campo = v; sync(); });
+
+montarFiltro(document.getElementById("filtro-granularidade"), [
+  { label:"Mensal", valor:"mensal" }, { label:"Trimestral", valor:"trimestral" }, { label:"Anual", valor:"anual" }
+], estado.granularidade, function(v){ estado.granularidade = v; sync(); });
+
+montarFiltro(document.getElementById("filtro-metrica"), [
+  { label:"Pontos de share", valor:"pontos" }, { label:"MW absoluto", valor:"mw" }
+], estado.metrica, function(v){ estado.metrica = v; sync(); });
+
+function sync(){
+  document.querySelectorAll(".filtro-grupo button").forEach(function(b){});
+  syncPressed(document.getElementById("filtro-campo"), estado.campo);
+  syncPressed(document.getElementById("filtro-granularidade"), estado.granularidade);
+  syncPressed(document.getElementById("filtro-metrica"), estado.metrica);
+  renderTudo();
+}
+function syncPressed(container, valorAtual){
+  var mapa = { modulo:"Módulo", inversor:"Inversor", mensal:"Mensal", trimestral:"Trimestral", anual:"Anual",
+               "2020":"Desde 2020", "2022":"Desde 2022", pontos:"Pontos de share", mw:"MW absoluto" };
+  Array.prototype.forEach.call(container.children, function(btn){
+    btn.setAttribute("aria-pressed", String(btn.textContent === mapa[valorAtual]));
+  });
+}
+
+inicializarEstadoPeriodos();
+renderTudo();
+window.addEventListener("resize", function(){});
+})();
+</script>
