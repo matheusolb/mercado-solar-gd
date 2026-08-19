@@ -1,0 +1,9 @@
+# Tema Streamlit com a paleta da marca Amara (extraida de
+# Em produção/Projects/Painel Base RD.html). So o modo claro -- o Streamlit nao
+# tem um segundo bloco de tema pra dark mode automatico via config.toml.
+[theme]
+primaryColor = "#00953b"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f3f5f3"
+textColor = "#1b2420"
+font = "sans serif"
