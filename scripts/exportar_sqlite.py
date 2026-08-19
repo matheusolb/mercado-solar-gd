@@ -12,6 +12,8 @@ from datetime import datetime
 
 import pandas as pd
 
+import marca_utils as mu
+
 PASTA_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 PASTA_PROJETO = os.path.dirname(PASTA_SCRIPTS)
 PASTA_PROCESSADOS = os.path.join(PASTA_PROJETO, "dados", "processados")
@@ -28,6 +30,7 @@ def main():
     linhas_totais = {}
     for campo in CAMPOS:
         mapa = pd.read_csv(os.path.join(PASTA_PROCESSADOS, f"mapa_marca_{campo}.csv"))
+        mu.validar_colunas(mapa, ["raw_normalized", "canonical_brand"], f"mapa_marca_{campo}.csv")
         mapa.to_sql(f"mapa_marca_{campo}", con, index=False, if_exists="replace")
         linhas_totais[f"mapa_marca_{campo}"] = len(mapa)
 
@@ -36,6 +39,7 @@ def main():
         linhas_totais[f"revisao_outros_{campo}"] = len(revisao)
 
         agregado = pd.read_parquet(os.path.join(PASTA_PROCESSADOS, f"agregado_marca_{campo}.parquet"))
+        mu.validar_colunas(agregado, mu.COLUNAS_AGREGADO, f"agregado_marca_{campo}.parquet")
         # faixa_potencia vem categorica do parquet -- o SQLite nao tem esse tipo, e
         # to_sql com categorical grava de forma imprevisivel. Converte pra texto.
         for col in agregado.select_dtypes(include=["category"]).columns:

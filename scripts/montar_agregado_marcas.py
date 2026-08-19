@@ -27,9 +27,7 @@ CAMPOS = {
 
 CAMINHO_FAIXAS = os.path.join(PASTA_SCRIPTS, "faixas_potencia.csv")
 
-CHAVES_AGRUPAMENTO = ["ano_mes", "ano", "mes", "trimestre", "ano_trimestre",
-                       "regiao", "SigUF", "CodUFibge", "CodMunicipioIbge", "NomMunicipio",
-                       "faixa_potencia", "classe_consumo", "grupo_tarifario", "distribuidora"]
+CHAVES_AGRUPAMENTO = mu.COLUNAS_AGRUPAMENTO_AGREGADO
 
 
 def resolver_arquivo(padrao: str) -> str:
@@ -42,22 +40,24 @@ def resolver_arquivo(padrao: str) -> str:
 def carregar_base_tecnica() -> pd.DataFrame:
     arq = resolver_arquivo("empreendimento-gd-informacoes-tecnicas-fotovoltaica*.parquet")
     print(f"Lendo base tecnica: {arq}")
-    df = pd.read_parquet(arq, columns=[
-        "CodGeracaoDistribuida", "DatConexao", "MdaPotenciaInstalada",
-        "NomFabricanteModulo", "NomFabricanteInversor",
-    ])
+    df = pd.read_parquet(arq, columns=mu.COLUNAS_TECNICAS_ANEEL)
+    mu.validar_colunas(df, mu.COLUNAS_TECNICAS_ANEEL, arq)
     print(f"  {len(df):,} linhas")
     return df
+
+
+COLUNAS_GEOGRAFICAS_ANEEL = [
+    "CodEmpreendimento", "SigTipoGeracao", "SigUF", "CodUFibge",
+    "CodMunicipioIbge", "NomMunicipio", "NomRegiao",
+    "DscClasseConsumo", "DscSubGrupoTarifario", "SigAgente",
+]
 
 
 def carregar_base_geografica() -> pd.DataFrame:
     arq = resolver_arquivo("empreendimento-geracao-distribuida*.parquet")
     print(f"Lendo base geografica: {arq}")
-    df = pd.read_parquet(arq, columns=[
-        "CodEmpreendimento", "SigTipoGeracao", "SigUF", "CodUFibge",
-        "CodMunicipioIbge", "NomMunicipio", "NomRegiao",
-        "DscClasseConsumo", "DscSubGrupoTarifario", "SigAgente",
-    ])
+    df = pd.read_parquet(arq, columns=COLUNAS_GEOGRAFICAS_ANEEL)
+    mu.validar_colunas(df, COLUNAS_GEOGRAFICAS_ANEEL, arq)
     df = df[df["SigTipoGeracao"] == "UFV"].drop(columns=["SigTipoGeracao"])
     # Renomeia pra nomes de negocio (o resto do pipeline e o modelo Power BI usam esses).
     df = df.rename(columns={
@@ -101,6 +101,7 @@ def aplicar_marca(df: pd.DataFrame, campo: str) -> pd.Series:
             f"{cfg['mapa']} nao existe -- rode montar_mapa_marcas.py antes deste script"
         )
     mapa = pd.read_csv(cfg["mapa"], dtype=str, keep_default_na=False)
+    mu.validar_colunas(mapa, ["raw_normalized", "canonical_brand"], cfg["mapa"])
     mapa_dict = dict(zip(mapa["raw_normalized"], mapa["canonical_brand"]))
     raw_norm = df[cfg["coluna_raw"]].map(mu.normalizar_texto)
     marca = raw_norm.map(mapa_dict)

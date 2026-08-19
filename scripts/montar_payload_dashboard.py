@@ -58,6 +58,7 @@ def carregar_agregado(campo: str) -> pd.DataFrame:
     if not os.path.exists(caminho):
         raise FileNotFoundError(f"{caminho} nao existe -- rode montar_agregado_marcas.py antes deste script")
     df = pd.read_parquet(caminho)
+    mu.validar_colunas(df, mu.COLUNAS_AGREGADO, caminho)
     return df[df["ano_mes"] >= PISO_PADRAO].copy()
 
 

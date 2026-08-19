@@ -165,10 +165,8 @@ def main():
 
     arq = resolver_arquivo_fotovoltaica()
     print(f"Lendo {arq}")
-    df = pd.read_parquet(arq, columns=[
-        "CodGeracaoDistribuida", "DatConexao", "MdaPotenciaInstalada",
-        "NomFabricanteModulo", "NomFabricanteInversor",
-    ])
+    df = pd.read_parquet(arq, columns=mu.COLUNAS_TECNICAS_ANEEL)
+    mu.validar_colunas(df, mu.COLUNAS_TECNICAS_ANEEL, arq)
     print(f"{len(df):,} linhas")
     ano = pd.to_datetime(df["DatConexao"]).dt.year
 
