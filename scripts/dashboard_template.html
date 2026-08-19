@@ -1224,7 +1224,7 @@ function renderCategoria(cfg){
     svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+alturaLinha/2+3, "text-anchor":"end", text:l.categoria }));
     var xAcum = ML;
     marcas.forEach(function(nome, s){
-      var v = l.valores_mw[s];
+      var v = l.valores_mw ? l.valores_mw[s] : 0;
       var larg = maxTotal>0 ? (v/maxTotal)*largura : 0;
       var gap = larg>3 ? 1 : 0;
       if (larg > gap*2){
@@ -1332,7 +1332,7 @@ function desenharBarrasGeo(svgId, linhas, marcas, opts){
     svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+alturaLinha/2+3, "text-anchor":"end", text: l.nome }));
     var xAcum = ML;
     marcas.forEach(function(nome, s){
-      var v = l.valores_mw[s];
+      var v = l.valores_mw ? l.valores_mw[s] : 0;
       var larg = maxTotal>0 ? (v/maxTotal)*largura : 0;
       var gap = larg>3 ? 1 : 0;
       if (larg > gap*2){
@@ -1350,8 +1350,9 @@ function desenharBarrasGeo(svgId, linhas, marcas, opts){
     svg.appendChild(hit);
     (function(row){
       anexarHover(hit, function(mx,my){
-        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(row.valores_mw[s]) }; })
-          .filter(function(t, idx){ return row.valores_mw[idx] > 0.0005; })
+        var valoresRow = row.valores_mw || [];
+        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(valoresRow[s] || 0) }; })
+          .filter(function(t, idx){ return (valoresRow[idx] || 0) > 0.0005; })
           .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
         mostrarTooltip(mx, my, row.nome + (row.sub ? " · " + row.sub : ""), tips, fmtMW(row.total_mw));
       });
@@ -1483,7 +1484,7 @@ function renderGeoMunicipios(dados, periodo, uf){
       linhas[0].marcaLider + " é a marca líder lá."
     : "Nenhum município de " + uf + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
 
-  desenharBarrasGeo("svg-geo", linhas.slice(0, 20), marcas, { ML: 130 });
+  desenharBarrasGeo("svg-geo", linhas.slice(0, DADOS.municipios_detalhe_top_n || 20), marcas, { ML: 130 });
 
   var detalhe = document.getElementById("geo-tabela-detalhe");
   detalhe.hidden = false;

@@ -34,6 +34,7 @@ TOP_N_NAO_IDENTIFICADO = 20
 # script e a fonte de verdade que os dois dashboards leem.
 LEADERBOARD_TOP_N = 6
 MULTIPLOS_TOP_N = 16
+MUNICIPIOS_DETALHE_TOP_N = 20
 
 CAMPOS = ["modulo", "inversor"]
 
@@ -198,7 +199,13 @@ def totais_municipio_mw_com_marcas(df: pd.DataFrame, meses: list[str], marcas_po
     """Com valores_mw por marca (usando o top-8 LOCAL da UF -- ver
     escolher_marcas_por_uf) para alimentar o grafico empilhado por municipio --
     roda pra todo periodo, pra que o filtro global de periodo abra o mesmo
-    grafico empilhado em qualquer recorte (nao so no periodo padrao)."""
+    grafico empilhado em qualquer recorte (nao so no periodo padrao).
+
+    valores_mw so vai pros MUNICIPIOS_DETALHE_TOP_N municipios de maior mw por UF --
+    e o que renderGeoMunicipios() de fato desenha no grafico empilhado
+    (linhas.slice(0, MUNICIPIOS_DETALHE_TOP_N)); o resto so aparece na tabela
+    completa, que usa mw/marca_lider_nome/marca_lider_mw, nao valores_mw. Isso e
+    94% do peso do payload (13 dos 14 MB) pra dado que nunca chega a ser desenhado."""
     subset = df[df["ano_mes"].isin(meses)].copy()
 
     marca_grafico_col = pd.Series(index=subset.index, dtype=object)
@@ -210,6 +217,7 @@ def totais_municipio_mw_com_marcas(df: pd.DataFrame, meses: list[str], marcas_po
 
     agrupado = subset.groupby(["CodMunicipioIbge", "SigUF", "_marca_grafico"])["soma_kw"].sum()
     resultado: dict[str, dict] = {}
+    uf_por_chave: dict[str, str] = {}
     for (cod, uf, marca), kw in agrupado.items():
         if kw <= 0:
             continue
@@ -223,9 +231,18 @@ def totais_municipio_mw_com_marcas(df: pd.DataFrame, meses: list[str], marcas_po
                 "marca_lider_nome": lider.get("nome", "—"),
                 "marca_lider_mw": lider.get("mw", 0.0),
             }
+            uf_por_chave[chave] = uf
         idx = marcas_fold_uf.index(marca)
         resultado[chave]["valores_mw"][idx] = round(kw / 1000, 3)
         resultado[chave]["mw"] = round(resultado[chave]["mw"] + kw / 1000, 3)
+
+    chaves_por_uf: dict[str, list[str]] = {}
+    for chave, uf in uf_por_chave.items():
+        chaves_por_uf.setdefault(uf, []).append(chave)
+    for chaves in chaves_por_uf.values():
+        chaves.sort(key=lambda c: resultado[c]["mw"], reverse=True)
+        for chave in chaves[MUNICIPIOS_DETALHE_TOP_N:]:
+            del resultado[chave]["valores_mw"]
     return resultado
 
 
@@ -447,6 +464,7 @@ def main():
         "top_n_cor": TOP_N_GRAFICO_COR,
         "leaderboard_top_n": LEADERBOARD_TOP_N,
         "multiplos_top_n": MULTIPLOS_TOP_N,
+        "municipios_detalhe_top_n": MUNICIPIOS_DETALHE_TOP_N,
         "campos": {campo: montar_payload_campo(campo) for campo in CAMPOS},
     }
     caminho = os.path.join(PASTA_DASHBOARD, "dashboard_dados.json")
