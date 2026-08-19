@@ -31,19 +31,15 @@ PLACEHOLDER_VALUES = frozenset({
     "ND", "X", "0", "-", "SN", "S N",
 })
 
-# Colunas do parquet tecnico da ANEEL usadas pelo pipeline -- unica fonte de verdade
-# (antes duplicada, digitada a mao, em montar_mapa_marcas.py e montar_agregado_marcas.py;
-# se a ANEEL renomear uma coluna, so precisa mudar aqui).
+# Colunas do parquet tecnico da ANEEL usadas pelo pipeline.
 COLUNAS_TECNICAS_ANEEL = [
     "CodGeracaoDistribuida", "DatConexao", "MdaPotenciaInstalada",
     "NomFabricanteModulo", "NomFabricanteInversor",
 ]
 
 
-# Colunas do agregado por marca (script 2, montar_agregado_marcas.py) -- fonte de
-# verdade unica tambem consumida pelos scripts 3 (payload) e 5 (exportar_sqlite),
-# que leem esse parquet/CSV sem filtro de coluna e so descobririam um schema
-# quebrado num KeyError tardio, no meio de alguma funcao de negocio.
+# Colunas do agregado por marca (gerado por montar_agregado_marcas.py), tambem
+# usadas por montar_payload_dashboard.py e exportar_sqlite.py.
 COLUNAS_AGRUPAMENTO_AGREGADO = [
     "ano_mes", "ano", "mes", "trimestre", "ano_trimestre",
     "regiao", "SigUF", "CodUFibge", "CodMunicipioIbge", "NomMunicipio",
@@ -54,9 +50,7 @@ COLUNAS_AGREGADO = COLUNAS_AGRUPAMENTO_AGREGADO + COLUNAS_METRICAS_AGREGADO
 
 
 def validar_colunas(df: pd.DataFrame, esperadas: list[str], origem: str) -> None:
-    """Falha alto e com mensagem clara se `df` nao tiver todas as colunas esperadas,
-    em vez de deixar um KeyError generico estourar bem mais tarde, no meio de alguma
-    funcao de negocio, sem contexto nenhum do que mudou."""
+    """Levanta ValueError com a lista de colunas faltando, se houver."""
     faltando = [c for c in esperadas if c not in df.columns]
     if faltando:
         raise ValueError(

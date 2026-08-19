@@ -30,6 +30,10 @@ PRIMEIRO_ANO = 2020
 TOP_N_GRAFICO = 15
 TOP_N_GRAFICO_COR = 10
 TOP_N_NAO_IDENTIFICADO = 20
+# So afetam apresentacao (nao o calculo do payload) -- moram aqui porque este
+# script e a fonte de verdade que os dois dashboards leem.
+LEADERBOARD_TOP_N = 6
+MULTIPLOS_TOP_N = 16
 
 CAMPOS = ["modulo", "inversor"]
 
@@ -70,9 +74,8 @@ def escolher_marcas_grafico(df: pd.DataFrame, periodos_meses: dict[str, list[str
     somem do top-8 recente porque hoje sao menores, mesmo sendo as maiores quedas
     do leaderboard) -- e o ponto de ver "a mudanca" e mostrar tanto quem subiu
     quanto quem caiu no proprio grafico, nao so na tabela de crescimento.
-    Lida pra logica_mercado.py (compartilhada com app.py) -- so acrescenta
-    Outros/Nao informado no fim, que e especifico de como este script monta o
-    payload."""
+    O ranking em si vem de logica_mercado.py; aqui so acrescenta Outros/Nao
+    informado no fim."""
     top = lm.top_marcas_por_pico(df, periodos_meses.values(), n)
     return top + [mu.OUTROS, mu.NAO_INFORMADO]
 
@@ -441,6 +444,9 @@ def main():
         "gerado_em": datetime.now().isoformat(timespec="seconds"),
         "unidade": "MW",
         "piso_tempo": PISO_PADRAO,
+        "top_n_cor": TOP_N_GRAFICO_COR,
+        "leaderboard_top_n": LEADERBOARD_TOP_N,
+        "multiplos_top_n": MULTIPLOS_TOP_N,
         "campos": {campo: montar_payload_campo(campo) for campo in CAMPOS},
     }
     caminho = os.path.join(PASTA_DASHBOARD, "dashboard_dados.json")

@@ -404,7 +404,10 @@ var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
 var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
 
 var estado = { campo:"modulo", granularidade:"mensal", anoDeGrafico:null, anoAteGrafico:null, metrica:"pontos", periodoDe:null, periodoAte:null, periodoGlobal:null, topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null };
-var TOP_N_COR = 10;
+// Vem do payload (montar_payload_dashboard.py); o fallback so cobre a preview
+// crua do template, sem payload embutido.
+var TOP_N_COR = DADOS.top_n_cor || 10;
+var LEADERBOARD_TOP_N = DADOS.leaderboard_top_n || 6;
 
 function el(tag, attrs, ns){
   var node = ns ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
@@ -859,7 +862,7 @@ function renderTendencia(){
 // virar mais um filtro independente. Chart.js (via CDN) da tooltip de hover de
 // graca; se o script falhar (Artifact bloqueia CDN por CSP), cai pra um SVG
 // desenhado a mao com a mesma interpolacao monotona do grafico de area.
-var MULTIPLOS_TOP_N = 16;
+var MULTIPLOS_TOP_N = DADOS.multiplos_top_n || 16;
 var chartsMultiplos = [];
 
 function renderMultiplos(){
@@ -1086,10 +1089,8 @@ function renderLeaderboard(){
 
   var metricaCampo = estado.metrica === "pontos" ? "delta_pontos_percentuais" : "delta_mw_absoluto";
   var linhas = linhasTodas.slice().sort(function(a,b){ return b[metricaCampo] - a[metricaCampo]; });
-  // 6 = LEADERBOARD_TOP_N em app.py -- os dois precisam mostrar o mesmo numero de
-  // marcas pro mesmo filtro, senao "quem ganhou/perdeu" diverge entre os dashboards.
-  var top = linhas.slice(0, 6);
-  var bottom = linhas.slice(-6).reverse();
+  var top = linhas.slice(0, LEADERBOARD_TOP_N);
+  var bottom = linhas.slice(-LEADERBOARD_TOP_N).reverse();
   var selecionadas = top.concat(bottom.filter(function(b){ return top.indexOf(b) === -1; }));
 
   var svg = document.getElementById("svg-leaderboard");

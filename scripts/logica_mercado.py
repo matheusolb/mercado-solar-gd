@@ -1,10 +1,7 @@
 """Logica de negocio compartilhada entre montar_payload_dashboard.py (dashboard HTML)
-e app.py (dashboard Streamlit) -- os dois calculam as mesmas coisas (ultimo mes
-completo, top-N de marcas por pico, dobra pra "Outros") a partir do mesmo agregado,
-so a camada de apresentacao troca de JSON/SVG por Plotly. Antes cada um reimplementava
-essas funcoes por conta propria (copy-paste), e ja divergiram silenciosamente uma vez
-(ver comentario em app.py sobre "cidade lider" divergente) -- esse modulo e a fonte
-unica pra parte de calculo.
+e app.py (dashboard Streamlit): ultimo mes completo, top-N de marcas por pico, dobra
+pra "Outros". Os dois calculam a partir do mesmo agregado -- so a camada de
+apresentacao troca de JSON/SVG por Plotly.
 """
 from __future__ import annotations
 

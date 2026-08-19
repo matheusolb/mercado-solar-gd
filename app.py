@@ -24,23 +24,17 @@ CAMINHO_FAIXAS = os.path.join(PASTA, "scripts", "faixas_potencia.csv")
 
 # scripts/ nao e um pacote instalado -- roda a partir da raiz do projeto (streamlit
 # run app.py), entao precisa entrar no sys.path manualmente pra importar os modulos
-# de la. Sem isso, detectar_ultimo_mes_completo/top_marcas_por_pico/marca_para_grafico
-# viviam copiados aqui e ja divergiram do dashboard HTML uma vez (ver leaderboard).
+# de la.
 sys.path.insert(0, os.path.join(PASTA, "scripts"))
 import logica_mercado as lm  # noqa: E402
 import marca_utils as mu  # noqa: E402
+# Mesma fonte de verdade que o dashboard HTML le do payload.
+from montar_payload_dashboard import (  # noqa: E402
+    LEADERBOARD_TOP_N, MULTIPLOS_TOP_N, PISO_PADRAO, TOP_N_GRAFICO_COR as TOP_N_COR,
+)
 
 OUTROS = mu.OUTROS
 NAO_INFORMADO = mu.NAO_INFORMADO
-# Tem que bater com TOP_N_GRAFICO_COR em montar_payload_dashboard.py -- e o mesmo
-# corte no dashboard HTML, os dois precisam mostrar o mesmo numero de marcas
-# coloridas pra nao divergir (o app.py nao le o payload, recalcula direto do banco).
-TOP_N_COR = 10
-# Quantas marcas aparecem no grafico de "quem ganhou/perdeu espaco" (top N que mais
-# subiram + top N que mais cairam). Tem que bater com o slice(0,6)/slice(-6) em
-# dashboard_template.html -- os dois ja mostraram numeros de marcas diferentes pro
-# mesmo filtro antes de igualar isso.
-LEADERBOARD_TOP_N = 6
 # Paleta categorica (identidade de marca no grafico) validada contra daltonismo/
 # contraste -- fica fixa (ver skill dataviz). Cores de cromo/status abaixo usam
 # a marca Amara (extraida de Em produção/Projects/Painel Base RD.html).
@@ -64,7 +58,7 @@ def carregar_agregado(campo: str, versao_db: float) -> pd.DataFrame:
     con = sqlite3.connect(CAMINHO_DB)
     df = pd.read_sql(f"SELECT * FROM agregado_marca_{campo}", con)
     con.close()
-    return df[df["ano_mes"] >= "2020-01"]
+    return df[df["ano_mes"] >= PISO_PADRAO]
 
 
 @st.cache_data
@@ -113,9 +107,7 @@ def em_periodo(periodo: str, ancora: str) -> str:
 
 
 def _meses_do_ano(ano: str) -> list[str]:
-    """Todos os 'YYYY-MM' de um ano -- equivalente a filtrar ano_mes.str.startswith(ano),
-    so que como lista explicita de meses, pro formato que logica_mercado.top_marcas_por_pico
-    espera (o mesmo formato que montar_payload_dashboard.py ja usa)."""
+    """Todos os 'YYYY-MM' de um ano, no formato que logica_mercado.top_marcas_por_pico espera."""
     return [f"{ano}-{m:02d}" for m in range(1, 13)]
 
 
@@ -251,9 +243,7 @@ def tabela_comparacao(df: pd.DataFrame, ano_de: str, ano_ate: str, ancora: str) 
         ki, kf = float(kw_de.get(m, 0.0)), float(kw_ate.get(m, 0.0))
         share_i = ki / total_de * 100 if total_de else 0.0
         share_f = kf / total_ate * 100 if total_ate else 0.0
-        # Mesma logica de calcularLeaderboard() no dashboard HTML: crescimento relativo
-        # so faz sentido com base > 0 (senao e divisao por zero); ki<=0 e kf>0 e uma
-        # marca literalmente nova no periodo, marcada em vez de calcular um % vazio.
+        # Crescimento relativo exige base > 0; ki<=0 e kf>0 e marca nova no periodo.
         if ki > 0:
             cresc_rel, entrante_novo = (kf - ki) / ki * 100, False
         else:
@@ -436,7 +426,7 @@ st.header("Cada marca, individualmente")
 # intervalo Grafico-de/ate do grafico principal, pra nao virar mais um filtro
 # independente. Mesma logica (e mesmo ajuste de "atual") do dashboard HTML.
 _reais_janela = df_janela[~df_janela["marca"].isin([OUTROS, NAO_INFORMADO])]
-_top_multiplos = (_reais_janela.groupby("marca")["soma_kw"].sum().sort_values(ascending=False).head(16).index.tolist())
+_top_multiplos = (_reais_janela.groupby("marca")["soma_kw"].sum().sort_values(ascending=False).head(MULTIPLOS_TOP_N).index.tolist())
 _meses_janela = sorted(df_janela["ano_mes"].unique())
 _serie_multiplos = (
     (_reais_janela.groupby(["marca", "ano_mes"])["soma_kw"].sum() / 1000)
