@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import sys
 
 import pandas as pd
 import plotly.express as px
@@ -21,8 +22,16 @@ PASTA = os.path.dirname(os.path.abspath(__file__))
 CAMINHO_DB = os.path.join(PASTA, "dados", "processados", "mercado_solar.db")
 CAMINHO_FAIXAS = os.path.join(PASTA, "scripts", "faixas_potencia.csv")
 
-OUTROS = "Outros"
-NAO_INFORMADO = "Não informado"
+# scripts/ nao e um pacote instalado -- roda a partir da raiz do projeto (streamlit
+# run app.py), entao precisa entrar no sys.path manualmente pra importar os modulos
+# de la. Sem isso, detectar_ultimo_mes_completo/top_marcas_por_pico/marca_para_grafico
+# viviam copiados aqui e ja divergiram do dashboard HTML uma vez (ver leaderboard).
+sys.path.insert(0, os.path.join(PASTA, "scripts"))
+import logica_mercado as lm  # noqa: E402
+import marca_utils as mu  # noqa: E402
+
+OUTROS = mu.OUTROS
+NAO_INFORMADO = mu.NAO_INFORMADO
 # Tem que bater com TOP_N_GRAFICO_COR em montar_payload_dashboard.py -- e o mesmo
 # corte no dashboard HTML, os dois precisam mostrar o mesmo numero de marcas
 # coloridas pra nao divergir (o app.py nao le o payload, recalcula direto do banco).
@@ -77,19 +86,6 @@ def ordenar_faixas(df: pd.DataFrame) -> list[str]:
     return medias.sort_values().index.tolist()
 
 
-def detectar_ultimo_mes_completo(totais: pd.Series, limiar: float = 0.7, janela_referencia: int = 6) -> str:
-    meses = totais.index.tolist()
-    i = len(meses) - 1
-    while i > janela_referencia:
-        referencia = totais.iloc[max(0, i - janela_referencia):i]
-        mediana_ref = referencia.median()
-        if mediana_ref > 0 and totais.iloc[i] < limiar * mediana_ref:
-            i -= 1
-            continue
-        break
-    return meses[i]
-
-
 def janela_12m(ancora: str) -> list[str]:
     p = pd.Period(ancora, freq="M")
     return [str(p - i) for i in range(11, -1, -1)]
@@ -111,23 +107,11 @@ def em_periodo(periodo: str, ancora: str) -> str:
     return f"em {periodo}"
 
 
-def top_marcas_por_pico(df: pd.DataFrame, anos_disponiveis: list[str], n: int) -> list[str]:
-    """Uma marca ganha cor propria se foi relevante em QUALQUER ano da serie (o
-    pico, nao so o ano mais recente) -- assim marcas que decolaram recentemente
-    (Astronergy) e marcas que mais caíram (Jinko/Trina/JA Solar/Sunova, ainda
-    grandes hoje mas menores que antes) aparecem as duas no grafico."""
-    picos: dict[str, float] = {}
-    for ano in anos_disponiveis:
-        subset = df[df["ano_mes"].str.startswith(ano)]
-        reais = subset[~subset["marca"].isin([OUTROS, NAO_INFORMADO])]
-        for marca, kw in reais.groupby("marca")["soma_kw"].sum().items():
-            picos[marca] = max(picos.get(marca, 0.0), kw)
-    return pd.Series(picos).sort_values(ascending=False).head(n).index.tolist()
-
-
-def marca_para_grafico(serie: pd.Series, top8: list[str]) -> pd.Series:
-    conjunto = set(top8)
-    return serie.where(serie.isin(conjunto) | (serie == NAO_INFORMADO), OUTROS)
+def _meses_do_ano(ano: str) -> list[str]:
+    """Todos os 'YYYY-MM' de um ano -- equivalente a filtrar ano_mes.str.startswith(ano),
+    so que como lista explicita de meses, pro formato que logica_mercado.top_marcas_por_pico
+    espera (o mesmo formato que montar_payload_dashboard.py ja usa)."""
+    return [f"{ano}-{m:02d}" for m in range(1, 13)]
 
 
 def totais_por_marca(df: pd.DataFrame, periodo: str, ancora: str) -> tuple[pd.Series, float]:
@@ -171,7 +155,7 @@ def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], 
         return
 
     subset = subset.copy()
-    subset["_marca_grafico"] = marca_para_grafico(subset["marca"], top8)
+    subset["_marca_grafico"] = lm.marca_para_grafico(subset["marca"], top8)
     tab = (subset.groupby([coluna, "_marca_grafico"], observed=True)["soma_kw"].sum().unstack(fill_value=0.0) / 1000)
     tab = tab.reindex(index=ordem, columns=marcas_cor, fill_value=0.0)
 
@@ -278,7 +262,7 @@ granularidade = st.sidebar.radio("Granularidade", ["mensal", "trimestral", "anua
 
 df_bruto = carregar_agregado(campo, os.path.getmtime(CAMINHO_DB))
 totais_mensais = df_bruto.groupby("ano_mes")["soma_kw"].sum().sort_index()
-ancora = detectar_ultimo_mes_completo(totais_mensais)
+ancora = lm.detectar_ultimo_mes_completo(totais_mensais)
 # Trunca no ultimo mes completo pra todas as visoes -- os meses mais recentes tem
 # atraso de cadastro da ANEEL e aparecem artificialmente baixos, o que distorceria
 # qualquer comparacao (ex: "2026" so tem 4 meses limpos, nao o ano inteiro).
@@ -331,7 +315,7 @@ ano_ate_grafico = _col_ate.selectbox("até", anos_disponiveis, index=len(anos_di
 if ano_de_grafico > ano_ate_grafico:
     ano_de_grafico, ano_ate_grafico = ano_ate_grafico, ano_de_grafico
 
-top15 = top_marcas_por_pico(df, anos_disponiveis, 15)
+top15 = lm.top_marcas_por_pico(df, (_meses_do_ano(a) for a in anos_disponiveis), 15)
 top8 = top15[:TOP_N_COR]
 marcas_cor = top8 + [OUTROS, NAO_INFORMADO]
 mapa_cor = dict(zip(marcas_cor, PALETA))
@@ -403,12 +387,12 @@ st.caption(
 # so um recorte especifico. Mesma logica de topMarcasPorPeriodos/serieMensalDinamica
 # no dashboard HTML.
 anos_no_range = [a for a in anos_disponiveis if ano_de_grafico <= a <= ano_ate_grafico]
-top8_dinamico = top_marcas_por_pico(df, anos_no_range, TOP_N_COR)
+top8_dinamico = lm.top_marcas_por_pico(df, (_meses_do_ano(a) for a in anos_no_range), TOP_N_COR)
 marcas_cor_dinamico = top8_dinamico + [OUTROS, NAO_INFORMADO]
 mapa_cor_dinamico = dict(zip(marcas_cor_dinamico, PALETA))
 
 df_janela = df[(df["ano_mes"] >= f"{ano_de_grafico}-01") & (df["ano_mes"] <= f"{ano_ate_grafico}-12")].copy()
-df_janela["marca_grafico"] = marca_para_grafico(df_janela["marca"], top8_dinamico)
+df_janela["marca_grafico"] = lm.marca_para_grafico(df_janela["marca"], top8_dinamico)
 coluna_periodo = {"mensal": "ano_mes", "trimestral": "ano_trimestre", "anual": "ano"}[granularidade]
 
 serie = (df_janela.groupby([coluna_periodo, "marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0) / 1000)
@@ -604,7 +588,7 @@ if regiao_global == "Brasil (todas)":
 subset_uf = filtrar_periodo(df, periodo_global, ancora).copy()
 if regiao_global != "Brasil (todas)":
     subset_uf = subset_uf[subset_uf["regiao"] == regiao_global]
-subset_uf["marca_grafico"] = marca_para_grafico(subset_uf["marca"], top8)
+subset_uf["marca_grafico"] = lm.marca_para_grafico(subset_uf["marca"], top8)
 uf_tab = (subset_uf.groupby(["SigUF", "marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0) / 1000)
 uf_tab = uf_tab.reindex(columns=marcas_cor, fill_value=0.0)
 uf_tab["Total"] = uf_tab.sum(axis=1)
@@ -648,11 +632,11 @@ if len(totais_mun):
     # Top-8 LOCAL dessa UF (pico dentro do estado, nao o top-8 do Brasil inteiro)
     # -- assim "Outros" reflete o que de fato nao foi identificado ali, nao so o
     # que nao faz parte do top-8 nacional, que pode ser quase irrelevante localmente.
-    top8_uf = top_marcas_por_pico(subset_uf_completa, anos_disponiveis, TOP_N_COR)
+    top8_uf = lm.top_marcas_por_pico(subset_uf_completa, (_meses_do_ano(a) for a in anos_disponiveis), TOP_N_COR)
     marcas_cor_uf = top8_uf + [OUTROS, NAO_INFORMADO]
     mapa_cor_uf = dict(zip(marcas_cor_uf, PALETA))
 
-    subset_mun["marca_grafico"] = marca_para_grafico(subset_mun["marca"], top8_uf)
+    subset_mun["marca_grafico"] = lm.marca_para_grafico(subset_mun["marca"], top8_uf)
     mun_tab = (subset_mun.groupby(["NomMunicipio", "marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0) / 1000)
     mun_tab = mun_tab.reindex(columns=marcas_cor_uf, fill_value=0.0)
     mun_tab["Total"] = mun_tab.sum(axis=1)

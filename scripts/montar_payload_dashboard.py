@@ -18,6 +18,7 @@ from datetime import datetime
 
 import pandas as pd
 
+import logica_mercado as lm
 import marca_utils as mu
 
 PASTA_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -68,16 +69,11 @@ def escolher_marcas_grafico(df: pd.DataFrame, periodos_meses: dict[str, list[str
     escondia justamente as marcas que mais caíram (ex: Jinko/Trina/JA Solar/Sunova
     somem do top-8 recente porque hoje sao menores, mesmo sendo as maiores quedas
     do leaderboard) -- e o ponto de ver "a mudanca" e mostrar tanto quem subiu
-    quanto quem caiu no proprio grafico, nao so na tabela de crescimento."""
-    picos: dict[str, float] = {}
-    for meses in periodos_meses.values():
-        subset = df[df["ano_mes"].isin(meses)]
-        reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
-        totais = reais.groupby("marca")["soma_kw"].sum()
-        for marca, kw in totais.items():
-            if kw > picos.get(marca, 0.0):
-                picos[marca] = kw
-    top = pd.Series(picos).sort_values(ascending=False).head(n).index.tolist()
+    quanto quem caiu no proprio grafico, nao so na tabela de crescimento.
+    Lida pra logica_mercado.py (compartilhada com app.py) -- so acrescenta
+    Outros/Nao informado no fim, que e especifico de como este script monta o
+    payload."""
+    top = lm.top_marcas_por_pico(df, periodos_meses.values(), n)
     return top + [mu.OUTROS, mu.NAO_INFORMADO]
 
 
@@ -121,15 +117,10 @@ def lideres_municipio(df: pd.DataFrame, meses: list[str]) -> dict[str, dict]:
     return {chave: {"nome": marca, "mw": round(kw / 1000, 3)} for chave, (marca, kw) in resultado.items()}
 
 
-def marca_para_grafico(serie_marca: pd.Series, marcas_grafico: list[str]) -> pd.Series:
-    conjunto_top = set(marcas_grafico[:TOP_N_GRAFICO_COR])
-    return serie_marca.where(serie_marca.isin(conjunto_top) | (serie_marca == mu.NAO_INFORMADO), mu.OUTROS)
-
-
 def serie_temporal(df: pd.DataFrame, coluna_periodo: str, marcas_grafico: list[str]) -> list[dict]:
     marcas_fold = marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO]
     tmp = df.copy()
-    tmp["_marca_grafico"] = marca_para_grafico(tmp["marca"], marcas_grafico)
+    tmp["_marca_grafico"] = lm.marca_para_grafico(tmp["marca"], marcas_grafico[:TOP_N_GRAFICO_COR])
     agrupado = tmp.groupby([coluna_periodo, "_marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0)
     agrupado = agrupado.reindex(columns=marcas_fold, fill_value=0.0)
     resultado = []
@@ -159,23 +150,6 @@ def serie_mensal_todas_marcas(df: pd.DataFrame) -> dict:
 def janela_12m(ancora: pd.Period) -> list[str]:
     return [str(ancora - i) for i in range(11, -1, -1)]
 
-
-def detectar_ultimo_mes_completo(totais_mensais: pd.Series, limiar: float = 0.7, janela_referencia: int = 6) -> pd.Period:
-    """A ANEEL tem atraso de cadastro: os ultimos meses antes da data do snapshot
-    aparecem artificialmente baixos (registros ainda sendo processados), o que nao
-    e queda real de mercado. Caminha do mes mais recente para tras, descartando
-    qualquer mes cujo total fique muito abaixo da mediana dos meses anteriores,
-    ate achar um mes "normal" -- data-driven, nao um numero fixo de meses."""
-    meses = totais_mensais.index.tolist()
-    i = len(meses) - 1
-    while i > janela_referencia:
-        referencia = totais_mensais.iloc[max(0, i - janela_referencia):i]
-        mediana_ref = referencia.median()
-        if mediana_ref > 0 and totais_mensais.iloc[i] < limiar * mediana_ref:
-            i -= 1
-            continue
-        break
-    return pd.Period(meses[i], freq="M")
 
 
 def construir_periodos(ancora: pd.Period) -> dict[str, list[str]]:
@@ -228,7 +202,7 @@ def totais_municipio_mw_com_marcas(df: pd.DataFrame, meses: list[str], marcas_po
     for uf, marcas_fold_uf in marcas_por_uf.items():
         mascara = subset["SigUF"] == uf
         if mascara.any():
-            marca_grafico_col.loc[mascara] = marca_para_grafico(subset.loc[mascara, "marca"], marcas_fold_uf).values
+            marca_grafico_col.loc[mascara] = lm.marca_para_grafico(subset.loc[mascara, "marca"], marcas_fold_uf[:TOP_N_GRAFICO_COR]).values
     subset["_marca_grafico"] = marca_grafico_col
 
     agrupado = subset.groupby(["CodMunicipioIbge", "SigUF", "_marca_grafico"])["soma_kw"].sum()
@@ -262,7 +236,7 @@ def totais_categoria_mw(df: pd.DataFrame, meses: list[str], marcas_grafico: list
     linhas nao seriam comparaveis entre si."""
     marcas_fold = marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO]
     subset = df[df["ano_mes"].isin(meses)].copy()
-    subset["_marca_grafico"] = marca_para_grafico(subset["marca"], marcas_grafico)
+    subset["_marca_grafico"] = lm.marca_para_grafico(subset["marca"], marcas_grafico[:TOP_N_GRAFICO_COR])
     agrupado = subset.groupby([coluna, "_marca_grafico"], observed=True)["soma_kw"].sum().unstack(fill_value=0.0)
     agrupado = agrupado.reindex(index=categorias, columns=marcas_fold, fill_value=0.0)
     return {str(cat): {m: round(v / 1000, 3) for m, v in linha.items()}
@@ -343,7 +317,7 @@ def mapa_uf_regiao(df: pd.DataFrame) -> dict[str, str]:
 def totais_uf_mw(df: pd.DataFrame, meses: list[str], marcas_grafico: list[str]) -> dict[str, dict[str, float]]:
     marcas_fold = marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO]
     subset = df[df["ano_mes"].isin(meses)].copy()
-    subset["_marca_grafico"] = marca_para_grafico(subset["marca"], marcas_grafico)
+    subset["_marca_grafico"] = lm.marca_para_grafico(subset["marca"], marcas_grafico[:TOP_N_GRAFICO_COR])
     agrupado = subset.groupby(["SigUF", "_marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0)
     agrupado = agrupado.reindex(columns=marcas_fold, fill_value=0.0)
     return {uf: {m: round(v / 1000, 3) for m, v in linha.items()} for uf, linha in agrupado.iterrows()}
@@ -354,7 +328,7 @@ def montar_payload_campo(campo: str) -> dict:
 
     totais_mensais = df.groupby("ano_mes")["soma_kw"].sum().sort_index()
     ultimo_mes_dados = pd.Period(totais_mensais.index[-1], freq="M")
-    ancora = detectar_ultimo_mes_completo(totais_mensais)
+    ancora = pd.Period(lm.detectar_ultimo_mes_completo(totais_mensais), freq="M")
     meses_descartados = (ultimo_mes_dados - ancora).n
 
     periodos_meses = construir_periodos(ancora)
