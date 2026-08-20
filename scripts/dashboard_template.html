@@ -226,7 +226,7 @@
     <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
     <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
   </div>
-  <p class="dash-sub filtros-nota">Período vale para Ranking e para as seções de Faixa/Classe/Tarifa/Distribuidora/Geografia: todas ficam sempre no mesmo recorte de tempo. Estado é um atalho, pula direto para o município escolhido em "Comportamento geográfico" (que também dá pra navegar clicando, a partir do Brasil).</p>
+  <p class="dash-sub filtros-nota">Período aplica-se a Ranking e às seções de Faixa, Classe, Tarifa, Distribuidora e Geografia, mantendo o mesmo recorte de tempo em todas. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil.</p>
 
   <section class="card">
     <div class="card-head">
@@ -886,8 +886,8 @@ function renderMultiplos(){
   var top = totais.slice(0, MULTIPLOS_TOP_N);
   var rotuloPeriodo = estado.anoDeGrafico === estado.anoAteGrafico ? "em " + estado.anoDeGrafico : "entre " + estado.anoDeGrafico + " e " + estado.anoAteGrafico;
   document.getElementById("legenda-multiplos-caption").textContent =
-    "As " + top.length + " maiores marcas " + rotuloPeriodo + ", cada uma na própria escala — inclui marcas que não entram nas " +
-    TOP_N_COR + " coloridas do gráfico principal (essas ficam dentro de \"Outros\" lá).";
+    "As " + top.length + " maiores marcas " + rotuloPeriodo + ", em escala individual — incluindo marcas hoje " +
+    "agregadas em \"Outros\" no gráfico principal.";
 
   var grade = document.getElementById("grade-multiplos");
   limpar(grade);
@@ -1013,7 +1013,7 @@ function renderMarcaEspecifica(){
   } else {
     var porTotal = seriesPorMarca.slice().sort(function(a,b){ return b.total - a.total; });
     document.getElementById("legenda-marca-especifica-caption").textContent =
-      "Do maior pro menor no período: " + porTotal.map(function(s){ return s.nome + " (" + fmtMW(s.total) + ")"; }).join(", ") + ".";
+      "Em ordem decrescente no período: " + porTotal.map(function(s){ return s.nome + " (" + fmtMW(s.total) + ")"; }).join(", ") + ".";
   }
 
   var svg = document.getElementById("svg-marca-especifica");
@@ -1254,9 +1254,9 @@ function renderCategoria(cfg){
   });
 
   document.getElementById(cfg.idExplicacao).textContent =
-    "Índice = participação da marca naquela " + cfg.rotuloSingular + " ÷ participação dela no mercado todo. " +
-    "Acima de 1 significa que a marca é mais forte ali do que no geral; 3× quer dizer três vezes mais concentrada. " +
-    "As marcas aqui não estão restritas às 10 coloridas do gráfico: especialistas de nicho aparecem sem esse corte.";
+    "Índice de especialização = participação da marca na " + cfg.rotuloSingular + " ÷ participação no mercado total. " +
+    "Valores acima de 1 indicam concentração acima da média; 3×, por exemplo, indica presença três vezes maior que a " +
+    "média de mercado. A lista não se limita às marcas em destaque no gráfico — inclui especialistas de nicho.";
 
   var tabela = document.getElementById(cfg.idTabela);
   limpar(tabela);
@@ -1461,7 +1461,7 @@ function renderGeoUfs(dados, periodo, regiao){
   var liderReal = lider ? (ufLideres[lider.nome] || {}) : {};
   document.getElementById("geo-caption").textContent = lider
     ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emPeriodo(dados, periodo) + " entre os estados de " +
-      regiao + ", com " + (liderReal.nome || "—") + " como marca mais presente lá. Clique num estado para ver os municípios."
+      regiao + ", com " + (liderReal.nome || "—") + " como marca mais presente no estado. Clique em um estado para ver os municípios."
     : "Nenhum estado de " + regiao + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
   document.getElementById("geo-tabela-detalhe").hidden = true;
   desenharBarrasGeo("svg-geo", linhas, marcas, {
@@ -1488,7 +1488,7 @@ function renderGeoMunicipios(dados, periodo, uf){
   document.getElementById("geo-caption").textContent = linhas.length
     ? linhas[0].nome + " lidera entre os " + linhas.length + " municípios de " + uf + " " + emPeriodo(dados, periodo) + ", com " +
       fmtMW(linhas[0].total_mw) + " (" + (totalUf>0?linhas[0].total_mw/totalUf*100:0).toFixed(1) + "% do estado), e " +
-      linhas[0].marcaLider + " é a marca líder lá."
+      linhas[0].marcaLider + " é a marca líder no município."
     : "Nenhum município de " + uf + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
 
   desenharBarrasGeo("svg-geo", linhas.slice(0, DADOS.municipios_detalhe_top_n || 20), marcas, { ML: 130 });
@@ -1591,10 +1591,9 @@ function renderRanking(){
   tabela.appendChild(tbody);
 
   document.getElementById("explicacao-nao-identificado").textContent =
-    "Amostra acumulada desde o início dos dados (não filtra por período, porque o texto bruto original não é " +
-    "guardado no agregado) dos maiores textos de fabricante de " + (estado.campo === "modulo" ? "módulo" : "inversor") +
-    " que o classificador não conseguiu associar a nenhuma marca conhecida. Reconhece algum? Preencha a coluna " +
-    "\"correcao_marca\" na linha correspondente em revisao_outros_" + estado.campo + ".csv e rode montar_mapa_marcas.py de novo.";
+    "Amostra dos maiores registros de fabricante de " + (estado.campo === "modulo" ? "módulo" : "inversor") +
+    " ainda não associados a uma marca conhecida, por volume instalado. O recorte não varia por período, pois " +
+    "o texto original do cadastro não é preservado após a agregação.";
   var tabelaNi = document.getElementById("tabela-nao-identificado");
   limpar(tabelaNi);
   var theadNi = el("thead"); var trhNi = el("tr");
@@ -1623,8 +1622,8 @@ function renderTudo(){
   var strong = el("strong", { text: estado.campo === "modulo" ? "módulo" : "inversor" });
   sub.appendChild(strong);
   sub.appendChild(document.createTextNode(
-    ". Todos os valores em MW de potência instalada (não quantidade de equipamentos); módulo e inversor usam a mesma unidade. Os últimos " + descarte +
-    " mês(es) de dados brutos ficam fora dos períodos de comparação: a ANEEL ainda está processando cadastros recentes, então eles aparecem artificialmente baixos até o mês de referência (" + ultimo + ")."
+    ", em MW de potência instalada. Os últimos " + descarte +
+    " mês(es) são preliminares — cadastro ainda em processamento pela ANEEL — e ficam fora das comparações; referência mais recente: " + ultimo + "."
   ));
 
   montarFiltrosGlobais();
@@ -1640,38 +1639,41 @@ function renderTudo(){
 
   var rodape = document.getElementById("rodape");
   limpar(rodape);
-  rodape.appendChild(el("p", { text: "Fonte: dados abertos da ANEEL (empreendimento-geracao-distribuida e informações técnicas fotovoltaica). Marcas normalizadas a partir de texto livre via mapeamento próprio (montar_mapa_marcas.py); divergências residuais caem em \"Outros\"." }));
+  rodape.appendChild(el("p", { text: "Fonte: dados abertos da ANEEL (empreendimento-geração-distribuída e informações técnicas fotovoltaica). Marcas normalizadas a partir de texto livre por metodologia própria; casos não identificados com segurança são classificados como \"Outros\"." }));
   rodape.appendChild(el("p", { text: "Gerado em " + DADOS.gerado_em + "." }));
 }
 
 function montarPainelAjuda(){
   var painel = document.getElementById("painel-ajuda");
   var itens = [
-    ["O que dá pra descobrir aqui",
-     "Quais marcas de painel solar e de inversor estão ganhando espaço no Brasil, e em que lugares isso está acontecendo. " +
-     "Os dados são da ANEEL (o órgão que regula energia no país) e cobrem as instalações solares residenciais e comerciais registradas desde 2020."],
+    ["O que este painel revela",
+     "Quais marcas de painel solar e de inversor vêm ganhando espaço no mercado brasileiro, e em quais regiões esse " +
+     "movimento é mais forte. Base: registros da ANEEL para instalações residenciais e comerciais desde 2020."],
     ["Participação de mercado ao longo do tempo",
-     "Quantos MW de cada marca foram instalados, mês a mês. Use \"Gráfico de\" / \"até\" pra focar num intervalo, ou troque entre visão mensal, " +
-     "trimestral e anual. Passe o mouse numa barra pra ver os números."],
+     "Evolução mensal da potência instalada por marca. Os seletores \"Gráfico de\" / \"até\" ajustam o intervalo " +
+     "analisado, com visão mensal, trimestral ou anual. Os valores detalhados aparecem ao passar o cursor sobre o gráfico."],
     ["Comparar marcas específicas",
-     "Escolha até 8 marcas pra ver a trajetória delas isoladas, sem o resto do gráfico atrapalhando. Bom pra marcas menores que não aparecem em destaque."],
+     "Isola a trajetória de até 8 marcas selecionadas — útil para acompanhar marcas de menor participação que não " +
+     "aparecem em destaque no gráfico principal."],
     ["Quem ganhou e quem perdeu espaço",
-     "Escolha dois períodos (dois anos, ou os últimos 12 meses) e veja de cara quem cresceu e quem encolheu em participação de mercado entre eles."],
+     "Compara dois períodos — anos completos ou os últimos 12 meses — e identifica imediatamente quem ganhou e quem " +
+     "perdeu participação de mercado entre eles."],
     ["Ranking completo de marcas",
-     "Todas as marcas identificadas num período, do maior pro menor volume instalado, sem se limitar às que aparecem coloridas no gráfico principal."],
+     "Todas as marcas identificadas em um período, ordenadas por volume instalado — não se limita às marcas em " +
+     "destaque no gráfico principal."],
     ["Comportamento por faixa de potência",
-     "Quais marcas se destacam em cada tamanho de instalação, do telhado residencial (≤10 kW) até usinas de minigeração (1–5 MW). " +
-     "Uma marca pode liderar num porte e quase não aparecer em outro (75 kW é o limite legal entre micro e minigeração)."],
+     "Quais marcas se destacam em cada faixa de porte, do telhado residencial (≤10 kW) a usinas de minigeração " +
+     "(1–5 MW). A liderança pode variar significativamente entre faixas — 75 kW é o limite legal entre micro e minigeração."],
     ["Comportamento por classe de consumo / grupo tarifário / distribuidora",
-     "O mesmo tipo de recorte, sob três outras lentes: quem vende mais para residências ou para indústria, em qual grupo tarifário, " +
-     "e se a força de uma marca muda conforme a distribuidora (concessionária) da região."],
+     "O mesmo recorte analítico sob três outras dimensões: perfil do consumidor (residencial, industrial etc.), " +
+     "grupo tarifário, e variação de força competitiva por distribuidora regional."],
     ["Comportamento geográfico",
-     "Navegue do Brasil até a cidade: clique numa região pra ver os estados dela, e num estado pra ver os municípios. " +
-     "O seletor \"Estado\" no cabeçalho é um atalho pro município que você já quer ver."],
+     "Navegação hierárquica do Brasil ao município: clique em uma região para abrir seus estados, e em um estado " +
+     "para abrir seus municípios. O seletor \"Estado\" no cabeçalho oferece acesso direto a um município específico."],
     ["Por que \"Outros\" existe",
-     "Quem cadastra o projeto na ANEEL digita o nome do fabricante à mão, então a mesma marca aparece escrita de formas diferentes " +
-     "(\"JINKO\" e \"JINKO SOLAR\" são a mesma coisa). Juntamos essas variações automaticamente; o que não dá pra reconhecer com segurança " +
-     "cai em \"Outros\", em vez de arriscar um palpite errado. Dá pra ver o que tem dentro desse grupo na seção de Ranking."],
+     "O cadastro na ANEEL é feito em texto livre, o que gera múltiplas grafias para a mesma marca " +
+     "(ex.: \"JINKO\" e \"JINKO SOLAR\"). Essas variações são consolidadas por metodologia própria; casos sem " +
+     "identificação segura permanecem em \"Outros\" — o detalhamento está disponível na seção Ranking."],
   ];
   itens.forEach(function(item){
     var div = el("div", { class:"ajuda-item" });

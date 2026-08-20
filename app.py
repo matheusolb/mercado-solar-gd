@@ -189,7 +189,7 @@ def calcular_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotu
              f"{perfil.loc[maior, 'mw']:.1f} MW ({perfil.loc[maior, 'mw']/total_geral*100:.0f}% da potência "
              f"em {inst_fmt} instalações)")
     if lider_maior:
-        texto += f", e **{lider_maior['Marca']}** é a marca mais presente lá ({lider_maior['Share na categoria %']:.1f}%"
+        texto += f", e **{lider_maior['Marca']}** é a marca mais presente nessa categoria ({lider_maior['Share na categoria %']:.1f}%"
         if lider_maior["Índice"]:
             texto += f", {lider_maior['Índice']:.1f}× a participação geral dela"
         texto += ")"
@@ -232,10 +232,10 @@ def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], 
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(
-        f"**Quem se sobressai em cada {rotulo_singular}.** Índice = participação da marca na categoria ÷ "
-        "participação dela no mercado todo. Acima de 1 significa que a marca é mais forte ali do que no geral; "
-        "3× quer dizer três vezes mais concentrada. Não está restrito às 10 marcas coloridas: especialistas "
-        "de nicho aparecem sem esse corte."
+        f"**Especialização por {rotulo_singular}.** Índice de especialização = participação da marca na "
+        "categoria ÷ participação no mercado total. Valores acima de 1 indicam concentração acima da média; "
+        "3×, por exemplo, indica presença três vezes maior que a média de mercado. A lista não se limita às "
+        "10 marcas em destaque — inclui especialistas de nicho."
     )
     st.dataframe(calc["especialistas"], use_container_width=True, hide_index=True)
     st.download_button(
@@ -347,38 +347,37 @@ distribuidoras_ordem = top_distribuidoras + [ROTULO_OUTRAS_DIST]
 st.title("Evolução de marcas de módulos e inversores")
 st.caption(
     f"Instalações fotovoltaicas de geração distribuída conectadas desde 2020, por marca de "
-    f"{'módulo' if campo == 'modulo' else 'inversor'}. Potência em MW instalada (não quantidade de "
-    f"equipamentos). Último mês sem atraso de cadastro da ANEEL: **{ancora}**."
+    f"{'módulo' if campo == 'modulo' else 'inversor'}, em MW de potência instalada. Último mês sem atraso de "
+    f"cadastro da ANEEL: **{ancora}**."
 )
 st.caption(
-    f"🔧 Período e Estado na barra lateral valem para Ranking, Comportamento por estado e Comportamento por "
-    f"município. Os três ficam sempre no mesmo recorte de tempo (hoje: {rotulos_periodo_global[periodo_global]}, {estado_global})."
+    f"🔧 Período e Estado na barra lateral aplicam-se a Ranking, Comportamento por estado e Comportamento por "
+    f"município, mantendo o mesmo recorte de tempo (atual: {rotulos_periodo_global[periodo_global]}, {estado_global})."
 )
 
 with st.expander("❓ Como usar este painel"):
     st.markdown(
-        "**O que dá pra descobrir aqui:** quais marcas de painel solar e de inversor estão ganhando espaço no "
-        "Brasil, e em que lugares isso está acontecendo. Os dados são da ANEEL (o órgão que regula energia no "
-        "país) e cobrem as instalações solares residenciais e comerciais registradas desde 2020.\n\n"
-        "**Participação de mercado ao longo do tempo:** quantos MW de cada marca foram instalados, mês a mês. "
-        "Use \"Gráfico de\" / \"até\" na barra lateral pra focar num intervalo, ou passe o mouse numa barra pra "
-        "ver os números.\n\n"
-        "**Comparar marcas específicas:** escolha até 8 marcas pra ver a trajetória delas isoladas, sem o resto "
-        "do gráfico atrapalhando. Bom pra marcas menores que não aparecem em destaque.\n\n"
-        "**Quem ganhou e quem perdeu espaço:** escolha dois períodos e veja de cara quem cresceu e quem encolheu "
-        "em participação de mercado entre eles.\n\n"
-        "**Ranking completo de marcas:** todas as marcas identificadas num período, do maior pro menor volume "
-        "instalado, sem se limitar às que aparecem coloridas no gráfico principal.\n\n"
-        "**Comportamento por faixa de potência / classe de consumo / grupo tarifário / distribuidora:** quais "
-        "marcas se destacam sob quatro lentes diferentes: tamanho da instalação, tipo de consumidor, tarifa e "
-        "distribuidora (concessionária). A tabela abaixo de cada gráfico mostra quem se sobressai ali, mesmo "
-        "uma marca pequena que não aparece colorida.\n\n"
-        "**Comportamento por estado / por município:** onde cada marca é mais forte. Escolha uma Região na "
-        "barra lateral pra ver só os estados dela, e um Estado pra abrir o corte por município, o Estado já "
-        "fica restrito à Região escolhida.\n\n"
-        "**Por que \"Outros\" existe:** quem cadastra o projeto na ANEEL digita o nome do fabricante à mão, "
-        "então a mesma marca aparece escrita de formas diferentes. Juntamos essas variações automaticamente; "
-        "o que não dá pra reconhecer com segurança cai em \"Outros\", em vez de arriscar um palpite errado."
+        "**O que este painel revela:** quais marcas de painel solar e de inversor vêm ganhando espaço no "
+        "mercado brasileiro, e em quais regiões esse movimento é mais forte. Base: registros da ANEEL para "
+        "instalações residenciais e comerciais desde 2020.\n\n"
+        "**Participação de mercado ao longo do tempo:** evolução mensal da potência instalada por marca. "
+        "Os seletores \"Gráfico de\" / \"até\" na barra lateral ajustam o intervalo analisado; os valores "
+        "detalhados aparecem ao passar o cursor sobre o gráfico.\n\n"
+        "**Comparar marcas específicas:** isola a trajetória de até 8 marcas selecionadas — útil para "
+        "acompanhar marcas de menor participação que não aparecem em destaque.\n\n"
+        "**Quem ganhou e quem perdeu espaço:** compara dois períodos e identifica imediatamente quem ganhou "
+        "e quem perdeu participação de mercado entre eles.\n\n"
+        "**Ranking completo de marcas:** todas as marcas identificadas em um período, ordenadas por volume "
+        "instalado — não se limita às marcas em destaque no gráfico principal.\n\n"
+        "**Comportamento por faixa de potência / classe de consumo / grupo tarifário / distribuidora:** o "
+        "mesmo recorte analítico sob quatro dimensões: porte da instalação, perfil do consumidor, tarifa e "
+        "distribuidora regional. A tabela abaixo de cada gráfico identifica quem se destaca em cada categoria, "
+        "incluindo marcas de menor porte.\n\n"
+        "**Comportamento por estado / por município:** onde cada marca é mais forte. Uma Região selecionada "
+        "na barra lateral restringe os estados disponíveis, e um Estado abre o corte por município.\n\n"
+        "**Por que \"Outros\" existe:** o cadastro na ANEEL é feito em texto livre, o que gera múltiplas "
+        "grafias para a mesma marca. Essas variações são consolidadas por metodologia própria; casos sem "
+        "identificação segura permanecem em \"Outros\"."
     )
 
 # ------------------------------------------------------------------ tendencia
@@ -447,8 +446,8 @@ _serie_multiplos = (
 
 _rotulo_intervalo = f"em {ano_de_grafico}" if ano_de_grafico == ano_ate_grafico else f"entre {ano_de_grafico} e {ano_ate_grafico}"
 st.caption(
-    f"As {len(_top_multiplos)} maiores marcas {_rotulo_intervalo}, cada uma na própria escala — inclui marcas que não "
-    f"entram nas {TOP_N_COR} coloridas do gráfico principal (essas ficam dentro de \"Outros\" lá)."
+    f"As {len(_top_multiplos)} maiores marcas {_rotulo_intervalo}, em escala individual — incluindo marcas hoje "
+    f"agregadas em \"Outros\" no gráfico principal."
 )
 
 _cols_multiplos = st.columns(4)
@@ -614,7 +613,7 @@ _reais_periodo = subset_uf[~subset_uf["marca"].isin([OUTROS, NAO_INFORMADO])]
 _marca_dominante_uf = _reais_periodo[_reais_periodo["SigUF"] == _uf_lider].groupby("marca")["soma_kw"].sum().idxmax()
 st.caption(
     f"**{_uf_lider}** lidera com {uf_tab.loc[_uf_lider, 'Total']:.1f} MW {em_periodo(periodo_global, ancora)}, "
-    f"com **{_marca_dominante_uf}** como marca mais presente lá."
+    f"com **{_marca_dominante_uf}** como marca mais presente no estado."
 )
 
 # O estado escolhido na barra lateral aparece em negrito/destaque aqui -- o
@@ -664,7 +663,7 @@ if len(totais_mun):
     st.caption(
         f"**{mun_tab.index[0]}** lidera entre os {len(totais_mun)} municípios de {estado_global} com instalação "
         f"{em_periodo(periodo_global, ancora)}, com {mun_tab.iloc[0]['Total']:.1f} MW ({mun_tab.iloc[0]['Total']/total_uf_mun*100:.1f}% do estado), "
-        f"e **{marca_lider_top1}** é a marca líder lá."
+        f"e **{marca_lider_top1}** é a marca líder no município."
     )
 
     fig_mun = px.bar(
