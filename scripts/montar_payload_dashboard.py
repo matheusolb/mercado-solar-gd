@@ -34,7 +34,6 @@ TOP_N_NAO_IDENTIFICADO = 20
 # script e a fonte de verdade que os dois dashboards leem.
 LEADERBOARD_TOP_N = 6
 MULTIPLOS_TOP_N = 16
-MUNICIPIOS_DETALHE_TOP_N = 20
 
 CAMPOS = ["modulo", "inversor"]
 
@@ -81,17 +80,6 @@ def escolher_marcas_grafico(df: pd.DataFrame, periodos_meses: dict[str, list[str
     return top + [mu.OUTROS, mu.NAO_INFORMADO]
 
 
-def escolher_marcas_por_uf(df: pd.DataFrame, periodos_meses: dict[str, list[str]]) -> dict[str, list[str]]:
-    """Top-8 local por UF (mesma logica de pico, mas dentro de cada estado) --
-    pro corte por municipio usar marcas relevantes NAQUELE estado, nao o top-8
-    do Brasil inteiro, que pode nao aparecer quase nada numa UF especifica e
-    inflar "Outros" artificialmente sem motivo real."""
-    resultado = {}
-    for uf in df["SigUF"].dropna().unique():
-        resultado[str(uf)] = escolher_marcas_grafico(df[df["SigUF"] == uf], periodos_meses, TOP_N_GRAFICO_COR)
-    return resultado
-
-
 def lideres_uf(df: pd.DataFrame, meses: list[str]) -> dict[str, dict]:
     """Marca real (entre TODAS, nao so o top-8 fixo) que mais instalou em cada UF
     no periodo -- existe porque restringir ao top-8 nacional pode reportar como
@@ -107,18 +95,13 @@ def lideres_uf(df: pd.DataFrame, meses: list[str]) -> dict[str, dict]:
     return {uf: {"nome": marca, "mw": round(kw / 1000, 3)} for uf, (marca, kw) in resultado.items()}
 
 
-def lideres_municipio(df: pd.DataFrame, meses: list[str]) -> dict[str, dict]:
-    """Mesma ideia de lideres_uf, por municipio."""
-    subset = df[df["ano_mes"].isin(meses)]
-    reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
-    agrupado = reais.groupby(["CodMunicipioIbge", "marca"])["soma_kw"].sum()
-    resultado: dict[str, tuple] = {}
-    for (cod, marca), kw in agrupado.items():
-        chave = str(int(cod)) if pd.notna(cod) else "ND"
-        atual = resultado.get(chave)
-        if atual is None or kw > atual[1]:
-            resultado[chave] = (marca, kw)
-    return {chave: {"nome": marca, "mw": round(kw / 1000, 3)} for chave, (marca, kw) in resultado.items()}
+def marcas_reais_indice(df: pd.DataFrame) -> list[str]:
+    """Lista de todas as marcas reais (nao Outros/Nao informado) do campo inteiro,
+    uma vez so -- serve de indice compartilhado pro breakdown por marca de cada
+    municipio (ver totais_municipio_mw), pra nao repetir nome de marca em cada
+    municipio-periodo (era a maior parte do peso de uma versao anterior)."""
+    reais = df[~df["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
+    return sorted(reais["marca"].unique().tolist())
 
 
 def serie_temporal(df: pd.DataFrame, coluna_periodo: str, marcas_grafico: list[str]) -> list[dict]:
@@ -194,55 +177,31 @@ def municipios_info(df: pd.DataFrame) -> dict[str, list]:
     return resultado
 
 
-def totais_municipio_mw_com_marcas(df: pd.DataFrame, meses: list[str], marcas_por_uf: dict[str, list[str]],
-                                    lideres: dict[str, dict]) -> dict[str, dict]:
-    """Com valores_mw por marca (usando o top-8 LOCAL da UF -- ver
-    escolher_marcas_por_uf) para alimentar o grafico empilhado por municipio --
-    roda pra todo periodo, pra que o filtro global de periodo abra o mesmo
-    grafico empilhado em qualquer recorte (nao so no periodo padrao).
+def totais_municipio_mw(df: pd.DataFrame, meses: list[str], marcas_indice: dict[str, int]) -> dict[str, dict]:
+    """Total de mw (TODO municipio, nenhum corte de top-N -- inclui Outros/Nao
+    informado) + breakdown esparso por marca real (marcas_idx: [[indice, mw], ...],
+    indice aponta pra "municipios_marcas_todas" no payload; so entra marca que
+    de fato instalou ali, sem zero-preenchimento). Esse breakdown e o que permite ao
+    cliente somar quantos periodos quiser e ainda calcular, com exatidao, quem
+    lidera cada municipio no intervalo somado -- nao so um retrato de um ano."""
+    subset = df[df["ano_mes"].isin(meses)]
+    total_por_municipio = subset.groupby("CodMunicipioIbge")["soma_kw"].sum()
+    reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
+    marca_por_municipio = reais.groupby(["CodMunicipioIbge", "marca"])["soma_kw"].sum()
 
-    valores_mw so vai pros MUNICIPIOS_DETALHE_TOP_N municipios de maior mw por UF --
-    e o que renderGeoMunicipios() de fato desenha no grafico empilhado
-    (linhas.slice(0, MUNICIPIOS_DETALHE_TOP_N)); o resto so aparece na tabela
-    completa, que usa mw/marca_lider_nome/marca_lider_mw, nao valores_mw. Isso e
-    94% do peso do payload (13 dos 14 MB) pra dado que nunca chega a ser desenhado."""
-    subset = df[df["ano_mes"].isin(meses)].copy()
-
-    marca_grafico_col = pd.Series(index=subset.index, dtype=object)
-    for uf, marcas_fold_uf in marcas_por_uf.items():
-        mascara = subset["SigUF"] == uf
-        if mascara.any():
-            marca_grafico_col.loc[mascara] = lm.marca_para_grafico(subset.loc[mascara, "marca"], marcas_fold_uf[:TOP_N_GRAFICO_COR]).values
-    subset["_marca_grafico"] = marca_grafico_col
-
-    agrupado = subset.groupby(["CodMunicipioIbge", "SigUF", "_marca_grafico"])["soma_kw"].sum()
     resultado: dict[str, dict] = {}
-    uf_por_chave: dict[str, str] = {}
-    for (cod, uf, marca), kw in agrupado.items():
+    for cod, kw in total_por_municipio.items():
         if kw <= 0:
             continue
         chave = str(int(cod)) if pd.notna(cod) else "ND"
-        marcas_fold_uf = marcas_por_uf.get(uf, [mu.OUTROS, mu.NAO_INFORMADO])
-        if chave not in resultado:
-            lider = lideres.get(chave, {})
-            resultado[chave] = {
-                "mw": 0.0,
-                "valores_mw": [0.0] * len(marcas_fold_uf),
-                "marca_lider_nome": lider.get("nome", "—"),
-                "marca_lider_mw": lider.get("mw", 0.0),
-            }
-            uf_por_chave[chave] = uf
-        idx = marcas_fold_uf.index(marca)
-        resultado[chave]["valores_mw"][idx] = round(kw / 1000, 3)
-        resultado[chave]["mw"] = round(resultado[chave]["mw"] + kw / 1000, 3)
+        resultado[chave] = {"mw": round(kw / 1000, 3), "marcas_idx": []}
 
-    chaves_por_uf: dict[str, list[str]] = {}
-    for chave, uf in uf_por_chave.items():
-        chaves_por_uf.setdefault(uf, []).append(chave)
-    for chaves in chaves_por_uf.values():
-        chaves.sort(key=lambda c: resultado[c]["mw"], reverse=True)
-        for chave in chaves[MUNICIPIOS_DETALHE_TOP_N:]:
-            del resultado[chave]["valores_mw"]
+    for (cod, marca), kw in marca_por_municipio.items():
+        if kw <= 0:
+            continue
+        chave = str(int(cod)) if pd.notna(cod) else "ND"
+        if chave in resultado:
+            resultado[chave]["marcas_idx"].append([marcas_indice[marca], round(kw / 1000, 3)])
     return resultado
 
 
@@ -361,7 +320,8 @@ def montar_payload_campo(campo: str) -> dict:
     # menores mas sao justamente as maiores quedas do leaderboard). Pico cobre
     # os dois lados da mudanca.
     marcas_grafico = escolher_marcas_grafico(df, periodos_meses, TOP_N_GRAFICO)
-    marcas_por_uf = escolher_marcas_por_uf(df, periodos_meses)
+    municipios_marcas_todas = marcas_reais_indice(df)
+    municipios_marcas_indice = {m: i for i, m in enumerate(municipios_marcas_todas)}
 
     print(f"  [{campo}] ultimo mes nos dados: {ultimo_mes_dados}  ancora usada (ultimo mes completo): {ancora}  "
           f"({meses_descartados} mes(es) recentes descartados por atraso de cadastro da ANEEL)")
@@ -396,8 +356,7 @@ def montar_payload_campo(campo: str) -> dict:
         marcas_mw[chave] = totais_por_marca_mw(df, meses)
         uf_mw[chave] = totais_uf_mw(df, meses, marcas_grafico)
         uf_lideres_por_periodo[chave] = lideres_uf(df, meses)
-        lideres_mun = lideres_municipio(df, meses)
-        municipios_por_periodo[chave] = totais_municipio_mw_com_marcas(df, meses, marcas_por_uf, lideres_mun)
+        municipios_por_periodo[chave] = totais_municipio_mw(df, meses, municipios_marcas_indice)
 
         faixa_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "faixa_potencia", faixas_ordem)
         faixa_perfil[chave] = perfil_categoria(df, meses, "faixa_potencia", faixas_ordem)
@@ -418,7 +377,6 @@ def montar_payload_campo(campo: str) -> dict:
     return {
         "marcas": marcas_grafico,
         "marcas_cor": marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO],
-        "marcas_por_uf": marcas_por_uf,
         "serie_mensal": serie_temporal(df, "ano_mes", marcas_grafico),
         "serie_trimestral": serie_temporal(df, "ano_trimestre", marcas_grafico),
         "ultimo_mes_completo": str(ancora),
@@ -426,6 +384,7 @@ def montar_payload_campo(campo: str) -> dict:
         "amostra_nao_identificado": amostra_nao_identificado(campo, TOP_N_NAO_IDENTIFICADO),
         "serie_por_marca": serie_mensal_todas_marcas(df),
         "municipios_info": municipios_info(df),
+        "municipios_marcas_todas": municipios_marcas_todas,
         "faixas_ordem": faixas_ordem,
         "classes_ordem": classes_ordem,
         "tarifas_ordem": tarifas_ordem,
@@ -464,7 +423,6 @@ def main():
         "top_n_cor": TOP_N_GRAFICO_COR,
         "leaderboard_top_n": LEADERBOARD_TOP_N,
         "multiplos_top_n": MULTIPLOS_TOP_N,
-        "municipios_detalhe_top_n": MUNICIPIOS_DETALHE_TOP_N,
         "campos": {campo: montar_payload_campo(campo) for campo in CAMPOS},
     }
     caminho = os.path.join(PASTA_DASHBOARD, "dashboard_dados.json")

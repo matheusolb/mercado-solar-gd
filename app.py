@@ -85,25 +85,15 @@ def ordenar_faixas(df: pd.DataFrame) -> list[str]:
     return medias.sort_values().index.tolist()
 
 
-def janela_12m(ancora: str) -> list[str]:
-    p = pd.Period(ancora, freq="M")
-    return [str(p - i) for i in range(11, -1, -1)]
+def filtrar_intervalo(df: pd.DataFrame, de: str, ate: str) -> pd.DataFrame:
+    return df[(df["ano_mes"] >= f"{de}-01") & (df["ano_mes"] <= f"{ate}-12")]
 
 
-def filtrar_periodo(df: pd.DataFrame, periodo: str, ancora: str) -> pd.DataFrame:
-    if periodo == "ultimos_12m":
-        return df[df["ano_mes"].isin(janela_12m(ancora))]
-    return df[df["ano_mes"].str.startswith(periodo)]
-
-
-def em_periodo(periodo: str, ancora: str) -> str:
-    """Mesma logica do dashboard HTML (funcao emPeriodo em dashboard_template.html):
-    "ultimos_12m" mostra tambem os meses exatos, pra deixar claro qual janela
-    rolante esta sendo comparada (nao so "12 meses" sem dizer quais)."""
-    if periodo == "ultimos_12m":
-        meses = janela_12m(ancora)
-        return f"nos últimos 12 meses ({meses[0]} a {meses[-1]})"
-    return f"em {periodo}"
+def em_intervalo(de: str, ate: str) -> str:
+    """Mesma logica do dashboard HTML (funcao emPeriodo em dashboard_template.html) --
+    um unico intervalo De/Ate cobre tanto "um periodo so" (de == ate) quanto uma
+    janela de varios anos, sem precisar de um mecanismo separado pra cada caso."""
+    return f"em {de}" if de == ate else f"entre {de} e {ate}"
 
 
 def _meses_do_ano(ano: str) -> list[str]:
@@ -111,8 +101,8 @@ def _meses_do_ano(ano: str) -> list[str]:
     return [f"{ano}-{m:02d}" for m in range(1, 13)]
 
 
-def totais_por_marca(df: pd.DataFrame, periodo: str, ancora: str) -> tuple[pd.Series, float]:
-    subset = filtrar_periodo(df, periodo, ancora)
+def totais_por_marca(df: pd.DataFrame, de: str, ate: str) -> tuple[pd.Series, float]:
+    subset = filtrar_intervalo(df, de, ate)
     total = subset["soma_kw"].sum()
     reais = subset[~subset["marca"].isin([OUTROS, NAO_INFORMADO])]
     return reais.groupby("marca")["soma_kw"].sum(), total
@@ -137,7 +127,7 @@ def top_categorias_por_pico(df: pd.DataFrame, anos_disponiveis: list[str], colun
 
 
 def calcular_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotulo_coluna: str,
-                        top8: list[str], marcas_cor: list[str], periodo_global: str, ancora: str,
+                        top8: list[str], marcas_cor: list[str], intervalo_de: str, intervalo_ate: str,
                         rotulo_singular: str, artigo: str, rotulo_plural: str, duas_pontas: bool,
                         rotulo_outros: str | None = None) -> dict | None:
     """Parte de calculo de render_secao_categoria: groupby, tabela de especialistas e o
@@ -185,7 +175,7 @@ def calcular_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotu
     maior = perfil_p_maior["mw"].idxmax()
     lider_maior = next((l for l in linhas_esp if l[rotulo_coluna] == maior), None)
     inst_fmt = f"{int(perfil.loc[maior, 'inst']):,}".replace(",", ".")
-    texto = (f"**{maior}** é {artigo} maior {rotulo_singular} {em_periodo(periodo_global, ancora)}, com "
+    texto = (f"**{maior}** é {artigo} maior {rotulo_singular} {em_intervalo(intervalo_de, intervalo_ate)}, com "
              f"{perfil.loc[maior, 'mw']:.1f} MW ({perfil.loc[maior, 'mw']/total_geral*100:.0f}% da potência "
              f"em {inst_fmt} instalações)")
     if lider_maior:
@@ -208,17 +198,17 @@ def calcular_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotu
 
 
 def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], rotulo_coluna: str,
-                            top8: list[str], marcas_cor: list[str], mapa_cor: dict, periodo_global: str,
-                            ancora: str, campo: str, rotulo_singular: str, artigo: str, rotulo_plural: str,
+                            top8: list[str], marcas_cor: list[str], mapa_cor: dict, intervalo_de: str,
+                            intervalo_ate: str, campo: str, rotulo_singular: str, artigo: str, rotulo_plural: str,
                             duas_pontas: bool, chave_download: str, altura: int = 380,
                             rotulo_outros: str | None = None) -> None:
     """Motor generico por tras de Faixa/Classe/Tarifa/Distribuidora -- mesma mecanica
     (barra empilhada por marca + tabela de especialistas) sobre uma coluna categorica
     diferente. Ver calcular_categoria() pro calculo; aqui e so Streamlit."""
-    calc = calcular_categoria(subset, coluna, ordem, rotulo_coluna, top8, marcas_cor, periodo_global,
-                               ancora, rotulo_singular, artigo, rotulo_plural, duas_pontas, rotulo_outros)
+    calc = calcular_categoria(subset, coluna, ordem, rotulo_coluna, top8, marcas_cor, intervalo_de,
+                               intervalo_ate, rotulo_singular, artigo, rotulo_plural, duas_pontas, rotulo_outros)
     if calc is None:
-        st.caption(f"Nenhuma instalação identificada {em_periodo(periodo_global, ancora)}.")
+        st.caption(f"Nenhuma instalação identificada {em_intervalo(intervalo_de, intervalo_ate)}.")
         return
     st.caption(calc["texto"])
 
@@ -241,14 +231,14 @@ def render_secao_categoria(subset: pd.DataFrame, coluna: str, ordem: list[str], 
     st.download_button(
         f"⬇️ Baixar especialistas por {rotulo_singular} (CSV)",
         calc["especialistas"].to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"especialistas_{chave_download}_{campo}_{periodo_global}.csv",
+        file_name=f"especialistas_{chave_download}_{campo}_{intervalo_de}_{intervalo_ate}.csv",
         mime="text/csv", key=f"dl_{chave_download}",
     )
 
 
-def tabela_comparacao(df: pd.DataFrame, ano_de: str, ano_ate: str, ancora: str) -> pd.DataFrame:
-    kw_de, total_de = totais_por_marca(df, ano_de, ancora)
-    kw_ate, total_ate = totais_por_marca(df, ano_ate, ancora)
+def tabela_comparacao(df: pd.DataFrame, ano_de: str, ano_ate: str) -> pd.DataFrame:
+    kw_de, total_de = totais_por_marca(df, ano_de, ano_de)
+    kw_ate, total_ate = totais_por_marca(df, ano_ate, ano_ate)
     todas_marcas = sorted(set(kw_de.index) | set(kw_ate.index))
     linhas = []
     for m in todas_marcas:
@@ -284,21 +274,21 @@ ancora = lm.detectar_ultimo_mes_completo(totais_mensais)
 df = df_bruto[df_bruto["ano_mes"] <= ancora].copy()
 anos_disponiveis = sorted(df["ano_mes"].str[:4].unique())
 
-# Periodo e estado escolhidos uma vez so aqui -- usados por Ranking, Comportamento
-# por estado e Comportamento por municipio, pra nao ter 3 recortes de tempo/UF
-# diferentes ao mesmo tempo. Antes cada secao usava seu proprio filtro (a de
-# municipio nem tinha filtro de periodo, so de UF), o que fazia esta versao e a
-# versao HTML (dashboard/dashboard.html) mostrarem "cidade lider" diferentes pro
-# mesmo estado -- o HTML comparava sempre "ultimos 12 meses" enquanto aqui
-# comparava o ultimo ano calendario escolhido no Ranking, duas janelas de tempo
-# diferentes por definicao.
-periodos_globais = anos_disponiveis + ["ultimos_12m"]
-rotulos_periodo_global = {a: a for a in anos_disponiveis}
-rotulos_periodo_global["ultimos_12m"] = "Últimos 12 meses"
-periodo_global = st.sidebar.selectbox(
-    "Período (Ranking / Estado / Município)", periodos_globais,
-    index=len(periodos_globais) - 1, format_func=lambda v: rotulos_periodo_global[v], key="periodo_global",
-)
+# Intervalo, escolhido uma vez so aqui -- usado por TODAS as secoes abaixo (Tendencia,
+# Comparar marcas, Leaderboard, Ranking, Faixa/Classe/Tarifa/Distribuidora, Estado e
+# Município). De == Até funciona como "um periodo so" (equivalente ao antigo filtro de
+# periodo unico); De < Até soma o intervalo inteiro nas secoes de composicao (Ranking,
+# Faixa/Classe/..., Estado/Município) e compara os dois extremos no Leaderboard e na
+# Tendencia. Antes existiam 3 mecanismos de tempo independentes (Período global,
+# Gráfico de/até, Leaderboard De/Até) que podiam ficar em recortes diferentes ao
+# mesmo tempo -- unificados aqui num so.
+_col_de, _col_ate = st.sidebar.columns(2)
+intervalo_de = _col_de.selectbox("Intervalo de", anos_disponiveis, index=0, key="intervalo_de")
+intervalo_ate = _col_ate.selectbox("até", anos_disponiveis, index=len(anos_disponiveis) - 1, key="intervalo_ate")
+if intervalo_de > intervalo_ate:
+    intervalo_de, intervalo_ate = intervalo_ate, intervalo_de
+
+
 def _ajustar_estado_para_regiao():
     """Callback do seletor de Regiao -- roda ANTES do rerun desenhar os widgets,
     e corrige o Estado selecionado se ele nao pertencer mais a regiao escolhida
@@ -324,12 +314,6 @@ estado_global = st.sidebar.selectbox(
     "Estado (Estado / Município)", ufs_disponiveis, index=_indice_sp, key="estado_global",
 )
 
-_col_de, _col_ate = st.sidebar.columns(2)
-ano_de_grafico = _col_de.selectbox("Gráfico de", anos_disponiveis, index=0)
-ano_ate_grafico = _col_ate.selectbox("até", anos_disponiveis, index=len(anos_disponiveis) - 1)
-if ano_de_grafico > ano_ate_grafico:
-    ano_de_grafico, ano_ate_grafico = ano_ate_grafico, ano_de_grafico
-
 top15 = lm.top_marcas_por_pico(df, (_meses_do_ano(a) for a in anos_disponiveis), 15)
 top8 = top15[:TOP_N_COR]
 marcas_cor = top8 + [OUTROS, NAO_INFORMADO]
@@ -351,8 +335,8 @@ st.caption(
     f"cadastro da ANEEL: **{ancora}**."
 )
 st.caption(
-    f"🔧 Período e Estado na barra lateral aplicam-se a Ranking, Comportamento por estado e Comportamento por "
-    f"município, mantendo o mesmo recorte de tempo (atual: {rotulos_periodo_global[periodo_global]}, {estado_global})."
+    f"🔧 Intervalo, Região e Estado na barra lateral aplicam-se a todas as seções abaixo, mantendo o mesmo "
+    f"recorte de tempo e geografia em todo o painel (atual: {em_intervalo(intervalo_de, intervalo_ate)}, {estado_global})."
 )
 
 with st.expander("❓ Como usar este painel"):
@@ -360,14 +344,17 @@ with st.expander("❓ Como usar este painel"):
         "**O que este painel revela:** quais marcas de painel solar e de inversor vêm ganhando espaço no "
         "mercado brasileiro, e em quais regiões esse movimento é mais forte. Base: registros da ANEEL para "
         "instalações residenciais e comerciais desde 2020.\n\n"
-        "**Participação de mercado ao longo do tempo:** evolução mensal da potência instalada por marca. "
-        "Os seletores \"Gráfico de\" / \"até\" na barra lateral ajustam o intervalo analisado; os valores "
-        "detalhados aparecem ao passar o cursor sobre o gráfico.\n\n"
+        "**Intervalo (De/Até), na barra lateral:** um único controle de tempo para o painel inteiro. Com os "
+        "dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, as seções de "
+        "composição (Ranking, Faixa/Classe/Tarifa/Distribuidora, Estado, Município) somam o período inteiro, "
+        "e a Tendência e o Leaderboard comparam o início com o fim do intervalo.\n\n"
+        "**Participação de mercado ao longo do tempo:** evolução mensal da potência instalada por marca, no "
+        "intervalo escolhido. Os valores detalhados aparecem ao passar o cursor sobre o gráfico.\n\n"
         "**Comparar marcas específicas:** isola a trajetória de até 8 marcas selecionadas — útil para "
         "acompanhar marcas de menor participação que não aparecem em destaque.\n\n"
-        "**Quem ganhou e quem perdeu espaço:** compara dois períodos e identifica imediatamente quem ganhou "
-        "e quem perdeu participação de mercado entre eles.\n\n"
-        "**Ranking completo de marcas:** todas as marcas identificadas em um período, ordenadas por volume "
+        "**Quem ganhou e quem perdeu espaço:** compara o início e o fim do intervalo selecionado e identifica "
+        "imediatamente quem ganhou e quem perdeu participação de mercado entre eles.\n\n"
+        "**Ranking completo de marcas:** todas as marcas identificadas no intervalo, ordenadas por volume "
         "instalado — não se limita às marcas em destaque no gráfico principal.\n\n"
         "**Comportamento por faixa de potência / classe de consumo / grupo tarifário / distribuidora:** o "
         "mesmo recorte analítico sob quatro dimensões: porte da instalação, perfil do consumidor, tarifa e "
@@ -383,8 +370,8 @@ with st.expander("❓ Como usar este painel"):
 # ------------------------------------------------------------------ tendencia
 st.header("Participação de mercado ao longo do tempo")
 
-_ano_base, _ano_recente = ano_de_grafico, ano_ate_grafico
-_destaques = tabela_comparacao(df, _ano_base, _ano_recente, ancora)
+_ano_base, _ano_recente = intervalo_de, intervalo_ate
+_destaques = tabela_comparacao(df, _ano_base, _ano_recente)
 _lider = _destaques.sort_values("share_final_pct", ascending=False).iloc[0]
 _subiu = _destaques.sort_values("delta_pontos_percentuais", ascending=False).iloc[0]
 _caiu = _destaques.sort_values("delta_pontos_percentuais", ascending=True).iloc[0]
@@ -394,18 +381,17 @@ st.caption(
     f"e **{_caiu['marca']}** quem mais perdeu ({_caiu['delta_pontos_percentuais']:.1f} p.p.)."
 )
 
-# As TOP_N_COR marcas em destaque aqui reagem ao intervalo Grafico de/ate escolhido
-# na barra lateral (nao ficam fixas no pico de TODOS os anos, como o top8/marcas_cor
-# "oficiais" usados em Comportamento por estado) -- uma marca so relevante fora
-# da janela visivel nao deveria ocupar uma das cores enquanto o filtro mostra
-# so um recorte especifico. Mesma logica de topMarcasPorPeriodos/serieMensalDinamica
-# no dashboard HTML.
-anos_no_range = [a for a in anos_disponiveis if ano_de_grafico <= a <= ano_ate_grafico]
+# As TOP_N_COR marcas em destaque aqui reagem ao Intervalo escolhido na barra lateral
+# (nao ficam fixas no pico de TODOS os anos, como o top8/marcas_cor "oficiais" usados
+# em Comportamento por estado) -- uma marca so relevante fora da janela visivel nao
+# deveria ocupar uma das cores enquanto o filtro mostra so um recorte especifico.
+# Mesma logica de topMarcasPorPeriodos/serieMensalDinamica no dashboard HTML.
+anos_no_range = [a for a in anos_disponiveis if intervalo_de <= a <= intervalo_ate]
 top8_dinamico = lm.top_marcas_por_pico(df, (_meses_do_ano(a) for a in anos_no_range), TOP_N_COR)
 marcas_cor_dinamico = top8_dinamico + [OUTROS, NAO_INFORMADO]
 mapa_cor_dinamico = dict(zip(marcas_cor_dinamico, PALETA))
 
-df_janela = df[(df["ano_mes"] >= f"{ano_de_grafico}-01") & (df["ano_mes"] <= f"{ano_ate_grafico}-12")].copy()
+df_janela = filtrar_intervalo(df, intervalo_de, intervalo_ate).copy()
 df_janela["marca_grafico"] = lm.marca_para_grafico(df_janela["marca"], top8_dinamico)
 coluna_periodo = {"mensal": "ano_mes", "trimestral": "ano_trimestre", "anual": "ano"}[granularidade]
 
@@ -444,7 +430,7 @@ _serie_multiplos = (
     .unstack(fill_value=0.0).reindex(columns=_meses_janela, fill_value=0.0)
 )
 
-_rotulo_intervalo = f"em {ano_de_grafico}" if ano_de_grafico == ano_ate_grafico else f"entre {ano_de_grafico} e {ano_ate_grafico}"
+_rotulo_intervalo = em_intervalo(intervalo_de, intervalo_ate)
 st.caption(
     f"As {len(_top_multiplos)} maiores marcas {_rotulo_intervalo}, em escala individual — incluindo marcas hoje "
     f"agregadas em \"Outros\" no gráfico principal."
@@ -504,16 +490,14 @@ else:
 # ------------------------------------------------------------------ leaderboard
 st.header("Quem ganhou e quem perdeu espaço")
 
-col1, col2, col3 = st.columns(3)
-periodo_de = col1.selectbox("De", periodos_globais, index=max(0, len(anos_disponiveis) - 3), format_func=lambda v: rotulos_periodo_global[v])
-periodo_ate = col2.selectbox("Até", periodos_globais, index=max(0, len(anos_disponiveis) - 2), format_func=lambda v: rotulos_periodo_global[v])
-metrica = col3.radio("Métrica", ["pontos", "mw"], format_func=lambda v: "Pontos de share" if v == "pontos" else "MW absoluto", horizontal=True)
+metrica = st.radio("Métrica", ["pontos", "mw"], format_func=lambda v: "Pontos de share" if v == "pontos" else "MW absoluto", horizontal=True)
 
-lb = tabela_comparacao(df, periodo_de, periodo_ate, ancora)
+if intervalo_de == intervalo_ate:
+    st.caption("Selecione um intervalo (De ≠ Até) na barra lateral para comparar crescimento entre dois pontos no tempo.")
+lb = tabela_comparacao(df, intervalo_de, intervalo_ate)
 _ordenada_pp = lb.sort_values("delta_pontos_percentuais", ascending=False)
-_rotulo_de, _rotulo_ate = rotulos_periodo_global[periodo_de], rotulos_periodo_global[periodo_ate]
 st.caption(
-    f"De {_rotulo_de} para {_rotulo_ate}: **{_ordenada_pp.iloc[0]['marca']}** ganhou mais espaço "
+    f"De {intervalo_de} para {intervalo_ate}: **{_ordenada_pp.iloc[0]['marca']}** ganhou mais espaço "
     f"(+{_ordenada_pp.iloc[0]['delta_pontos_percentuais']:.1f} p.p.), enquanto **{_ordenada_pp.iloc[-1]['marca']}** "
     f"foi quem mais perdeu ({_ordenada_pp.iloc[-1]['delta_pontos_percentuais']:.1f} p.p.)."
 )
@@ -539,13 +523,13 @@ st.header("Ranking completo de marcas")
 
 top_n = st.selectbox("Mostrar", [10, 15, 20, "Todas"], index=1)
 
-kw_r, total_r = totais_por_marca(df, periodo_global, ancora)
+kw_r, total_r = totais_por_marca(df, intervalo_de, intervalo_ate)
 ranking = (kw_r / 1000).sort_values(ascending=False).reset_index()
 ranking.columns = ["Marca", "MW"]
 ranking["Participação %"] = ranking["MW"] / (total_r / 1000) * 100 if total_r else 0.0
 _top3 = ranking.head(3)
 st.caption(
-    f"{len(ranking)} marcas disputam espaço {em_periodo(periodo_global, ancora)}; as 3 maiores "
+    f"{len(ranking)} marcas disputam espaço {em_intervalo(intervalo_de, intervalo_ate)}; as 3 maiores "
     f"({', '.join(_top3['Marca'])}) somam {_top3['Participação %'].sum():.0f}% do mercado."
 )
 if top_n != "Todas":
@@ -554,10 +538,10 @@ st.dataframe(ranking.round(2), use_container_width=True, hide_index=True)
 
 # ------------------------------------------------------------------ por faixa de potencia
 st.header("Comportamento por faixa de potência")
-subset_periodo = filtrar_periodo(df, periodo_global, ancora)
+subset_periodo = filtrar_intervalo(df, intervalo_de, intervalo_ate)
 render_secao_categoria(
     subset_periodo, "faixa_potencia", ordenar_faixas(subset_periodo), "Faixa",
-    top8, marcas_cor, mapa_cor, periodo_global, ancora, campo,
+    top8, marcas_cor, mapa_cor, intervalo_de, intervalo_ate, campo,
     rotulo_singular="faixa", artigo="a", rotulo_plural="Faixas", duas_pontas=True, chave_download="faixa",
 )
 
@@ -565,7 +549,7 @@ render_secao_categoria(
 st.header("Comportamento por classe de consumo")
 render_secao_categoria(
     subset_periodo, "classe_consumo", classes_ordem, "Classe",
-    top8, marcas_cor, mapa_cor, periodo_global, ancora, campo,
+    top8, marcas_cor, mapa_cor, intervalo_de, intervalo_ate, campo,
     rotulo_singular="classe de consumo", artigo="a", rotulo_plural="Classes", duas_pontas=False,
     chave_download="classe", altura=340,
 )
@@ -574,7 +558,7 @@ render_secao_categoria(
 st.header("Comportamento por grupo tarifário")
 render_secao_categoria(
     subset_periodo, "grupo_tarifario", tarifas_ordem, "Grupo tarifário",
-    top8, marcas_cor, mapa_cor, periodo_global, ancora, campo,
+    top8, marcas_cor, mapa_cor, intervalo_de, intervalo_ate, campo,
     rotulo_singular="grupo tarifário", artigo="o", rotulo_plural="Grupos tarifários", duas_pontas=False,
     chave_download="tarifa", altura=360,
 )
@@ -586,7 +570,7 @@ subset_dist["distribuidora"] = subset_dist["distribuidora"].where(
     subset_dist["distribuidora"].isin(top_distribuidoras), ROTULO_OUTRAS_DIST)
 render_secao_categoria(
     subset_dist, "distribuidora", distribuidoras_ordem, "Distribuidora",
-    top8, marcas_cor, mapa_cor, periodo_global, ancora, campo,
+    top8, marcas_cor, mapa_cor, intervalo_de, intervalo_ate, campo,
     rotulo_singular="distribuidora", artigo="a", rotulo_plural="Distribuidoras", duas_pontas=False,
     chave_download="distribuidora", altura=380, rotulo_outros=ROTULO_OUTRAS_DIST,
 )
@@ -599,7 +583,7 @@ if regiao_global == "Brasil (todas)":
         "o corte por município abaixo. Os dois já respeitam a escolha um do outro (o Estado só lista UFs da Região)."
     )
 
-subset_uf = filtrar_periodo(df, periodo_global, ancora).copy()
+subset_uf = filtrar_intervalo(df, intervalo_de, intervalo_ate).copy()
 if regiao_global != "Brasil (todas)":
     subset_uf = subset_uf[subset_uf["regiao"] == regiao_global]
 subset_uf["marca_grafico"] = lm.marca_para_grafico(subset_uf["marca"], top8)
@@ -612,7 +596,7 @@ _uf_lider = uf_tab.index[-1]
 _reais_periodo = subset_uf[~subset_uf["marca"].isin([OUTROS, NAO_INFORMADO])]
 _marca_dominante_uf = _reais_periodo[_reais_periodo["SigUF"] == _uf_lider].groupby("marca")["soma_kw"].sum().idxmax()
 st.caption(
-    f"**{_uf_lider}** lidera com {uf_tab.loc[_uf_lider, 'Total']:.1f} MW {em_periodo(periodo_global, ancora)}, "
+    f"**{_uf_lider}** lidera com {uf_tab.loc[_uf_lider, 'Total']:.1f} MW {em_intervalo(intervalo_de, intervalo_ate)}, "
     f"com **{_marca_dominante_uf}** como marca mais presente no estado."
 )
 
@@ -639,7 +623,7 @@ st.plotly_chart(fig_uf, use_container_width=True)
 st.header("Comportamento por município")
 
 subset_uf_completa = df[df["SigUF"] == estado_global]
-subset_mun = filtrar_periodo(subset_uf_completa, periodo_global, ancora).copy()
+subset_mun = filtrar_intervalo(subset_uf_completa, intervalo_de, intervalo_ate).copy()
 totais_mun = subset_mun.groupby("NomMunicipio")["soma_kw"].sum().sort_values(ascending=False) / 1000
 
 if len(totais_mun):
@@ -662,7 +646,7 @@ if len(totais_mun):
     marca_lider_top1 = _reais_mun[_reais_mun["NomMunicipio"] == mun_tab.index[0]].groupby("marca")["soma_kw"].sum().idxmax()
     st.caption(
         f"**{mun_tab.index[0]}** lidera entre os {len(totais_mun)} municípios de {estado_global} com instalação "
-        f"{em_periodo(periodo_global, ancora)}, com {mun_tab.iloc[0]['Total']:.1f} MW ({mun_tab.iloc[0]['Total']/total_uf_mun*100:.1f}% do estado), "
+        f"{em_intervalo(intervalo_de, intervalo_ate)}, com {mun_tab.iloc[0]['Total']:.1f} MW ({mun_tab.iloc[0]['Total']/total_uf_mun*100:.1f}% do estado), "
         f"e **{marca_lider_top1}** é a marca líder no município."
     )
 
@@ -685,4 +669,4 @@ if len(totais_mun):
             use_container_width=True, hide_index=True,
         )
 else:
-    st.caption(f"Nenhum município de {estado_global} com instalação identificada {em_periodo(periodo_global, ancora)}.")
+    st.caption(f"Nenhum município de {estado_global} com instalação identificada {em_intervalo(intervalo_de, intervalo_ate)}.")

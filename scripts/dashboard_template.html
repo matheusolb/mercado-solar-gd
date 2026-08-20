@@ -221,12 +221,14 @@
 
   <div class="filtros filtros-globais">
     <div class="filtro-grupo" id="filtro-campo"></div>
-    <label class="filtro-rotulo" for="filtro-periodo-global-select">Período</label>
-    <div class="filtro-grupo filtro-periodo" id="filtro-periodo-global"></div>
+    <label class="filtro-rotulo" for="filtro-intervalo-de-select">Intervalo</label>
+    <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-de"></div>
+    <span class="filtro-seta">→</span>
+    <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-ate"></div>
     <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
     <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
   </div>
-  <p class="dash-sub filtros-nota">Período aplica-se a Ranking e às seções de Faixa, Classe, Tarifa, Distribuidora e Geografia, mantendo o mesmo recorte de tempo em todas. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil.</p>
+  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil.</p>
 
   <section class="card">
     <div class="card-head">
@@ -235,9 +237,6 @@
     </div>
     <div class="filtros">
       <div class="filtro-grupo" id="filtro-granularidade"></div>
-      <div class="filtro-grupo filtro-periodo" id="filtro-tendencia-de"></div>
-      <span class="filtro-seta">→</span>
-      <div class="filtro-grupo filtro-periodo" id="filtro-tendencia-ate"></div>
     </div>
     <div class="legend" id="legenda-tendencia"></div>
     <div class="chart-wrap" id="wrap-tendencia">
@@ -277,9 +276,6 @@
       <p class="card-caption" id="legenda-leaderboard-caption"></p>
     </div>
     <div class="filtros">
-      <div class="filtro-grupo filtro-periodo" id="filtro-periodo-de"></div>
-      <span class="filtro-seta">→</span>
-      <div class="filtro-grupo filtro-periodo" id="filtro-periodo-ate"></div>
       <div class="filtro-grupo" id="filtro-metrica"></div>
     </div>
     <div class="chart-wrap" id="wrap-leaderboard">
@@ -375,7 +371,7 @@
     <div class="chart-wrap" id="wrap-geo">
       <svg id="svg-geo" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary>Ver tabela completa</summary>
+    <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary id="geo-tabela-detalhe-titulo">Ver tabela completa</summary>
       <div class="table-scroll"><table class="dados" id="tabela-geo"></table></div>
     </details>
   </section>
@@ -403,7 +399,7 @@ var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
 
 var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
 
-var estado = { campo:"modulo", granularidade:"mensal", anoDeGrafico:null, anoAteGrafico:null, metrica:"pontos", periodoDe:null, periodoAte:null, periodoGlobal:null, topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null };
+var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null };
 // Vem do payload (montar_payload_dashboard.py); o fallback so cobre a preview
 // crua do template, sem payload embutido.
 var TOP_N_COR = DADOS.top_n_cor || 10;
@@ -442,6 +438,61 @@ function anosNoRange(anoDe, anoAte){
   var lista = [];
   for (var a = parseInt(anoDe,10); a <= parseInt(anoAte,10); a++) lista.push(String(a));
   return lista;
+}
+var chavesNoIntervalo = anosNoRange;
+
+// Helpers pra somar dicionarios por-periodo do payload num intervalo De->Ate --
+// e o que permite que Ranking/Faixa/Classe/Tarifa/Distribuidora/Geografia deixem
+// de mostrar so um periodo (snapshot) e passem a somar um intervalo inteiro,
+// igual a Tendencia/Leaderboard ja faziam. So funciona pros dicionarios que o
+// payload guarda "completos" por periodo (marcas_mw, totais_mw, uf_mw, faixa_mw
+// etc.) -- os que ja vem truncados a um top-N por periodo (especialistas,
+// municipios_mw) nao sao somaveis (ver renderCategoria/renderGeoMunicipios).
+function somarDict(dictoPorPeriodo, chaves){
+  var total = {};
+  chaves.forEach(function(chave){
+    var d = dictoPorPeriodo[chave] || {};
+    Object.keys(d).forEach(function(k){ total[k] = (total[k]||0) + d[k]; });
+  });
+  return total;
+}
+function somarEscalar(dictoPorPeriodo, chaves){
+  return chaves.reduce(function(acc, chave){ return acc + (dictoPorPeriodo[chave] || 0); }, 0);
+}
+function somarDictAninhado(dictoPorPeriodo, chaves){
+  var total = {};
+  chaves.forEach(function(chave){
+    var d = dictoPorPeriodo[chave] || {};
+    Object.keys(d).forEach(function(externa){
+      if (!total[externa]) total[externa] = {};
+      var interna = d[externa] || {};
+      Object.keys(interna).forEach(function(k){ total[externa][k] = (total[externa][k]||0) + interna[k]; });
+    });
+  });
+  return total;
+}
+function somarPerfil(perfilPorPeriodo, chaves){
+  var total = {};
+  chaves.forEach(function(chave){
+    var d = perfilPorPeriodo[chave] || {};
+    Object.keys(d).forEach(function(cat){
+      var atual = total[cat] || [0,0];
+      var novo = d[cat] || [0,0];
+      total[cat] = [atual[0]+novo[0], atual[1]+novo[1]];
+    });
+  });
+  return total;
+}
+// Marca lider a partir de valores_mw ja somados -- exclui os 2 ultimos indices
+// (Outros/Nao informado, sempre no fim de marcas_cor/marcas_por_uf). Usado no
+// lugar de uf_lideres (precomputado so por periodo unico) quando o intervalo
+// tem mais de um periodo.
+function liderPorValores(marcas, valores){
+  var melhorIdx = -1, melhorVal = -1;
+  for (var i = 0; i < marcas.length - 2; i++){
+    if ((valores[i]||0) > melhorVal){ melhorVal = valores[i]; melhorIdx = i; }
+  }
+  return melhorIdx >= 0 && melhorVal > 0 ? { nome: marcas[melhorIdx], mw: melhorVal } : null;
 }
 
 function topMarcasPorPeriodos(dados, chaves, n){
@@ -486,6 +537,12 @@ function emPeriodo(dados, chave){
   return (chave === "ultimos_12m" ? "nos " : "em ") + rotulo.toLowerCase();
 }
 
+// Um intervalo De->Ate cobre tanto "um periodo so" (de === ate) quanto uma janela
+// de varios anos -- mesma logica de em_intervalo() em app.py.
+function emIntervalo(dados, de, ate){
+  return de === ate ? emPeriodo(dados, de) : "entre " + dados.periodos.rotulos[de] + " e " + dados.periodos.rotulos[ate];
+}
+
 function rotuloExtenso(dados, chave){
   var base = dados.periodos.rotulos[chave];
   var ext = dados.periodos.extremos && dados.periodos.extremos[chave];
@@ -512,23 +569,13 @@ function serieUnicaPorGranularidade(periodosMensais, valores, granularidade){
   return ordem.map(function(k){ return { periodo: k, valor: porPeriodo[k] }; });
 }
 
-function anosCompletos(dados){
-  return dados.periodos.ordem.filter(function(k){
-    return k !== "ultimos_12m" && dados.periodos.rotulos[k].indexOf("parcial") === -1;
-  });
-}
-
 function inicializarEstadoPeriodos(){
   var dados = DADOS.campos.modulo;
-  var completos = anosCompletos(dados);
-  estado.periodoDe = completos.length >= 2 ? completos[completos.length-2] : dados.periodos.ordem[0];
-  estado.periodoAte = completos.length >= 1 ? completos[completos.length-1] : dados.periodos.ordem[0];
-  estado.periodoGlobal = "ultimos_12m";
   estado.marcasComparadas = [dados.marcas[0]];
   estado.estadoGlobal = "SP";
   var anos = dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; });
-  estado.anoDeGrafico = anos[0];
-  estado.anoAteGrafico = anos[anos.length-1];
+  estado.intervaloDe = anos[0];
+  estado.intervaloAte = anos[anos.length-1];
   // Drill-down geografico comeca no topo (Brasil > regioes) -- o Estado escolhido
   // no cabecalho e so usado quando o usuario pede pra ir direto ao municipio (ver
   // montarFiltrosGlobais), nao forca o drill-down a abrir ja no fundo.
@@ -549,23 +596,10 @@ function montarSeletorAno(container, dados, valorAtual, onChange){
   container.appendChild(sel);
 }
 
-function montarSeletorPeriodo(container, dados, valorAtual, onChange){
-  limpar(container);
-  var sel = el("select", { "aria-label":"Selecionar período" });
-  dados.periodos.ordem.forEach(function(chave){
-    var opt = document.createElement("option");
-    opt.value = chave; opt.textContent = dados.periodos.rotulos[chave];
-    sel.appendChild(opt);
-  });
-  sel.value = valorAtual;
-  sel.addEventListener("change", function(){ onChange(sel.value); });
-  container.appendChild(sel);
-}
-
 function montarSeletorEstado(container, dados, valorAtual, onChange){
   limpar(container);
   var sel = el("select", { "aria-label":"Selecionar estado" });
-  Object.keys(dados.marcas_por_uf).sort().forEach(function(uf){
+  Object.keys(dados.uf_regiao).sort().forEach(function(uf){
     var opt = document.createElement("option");
     opt.value = uf; opt.textContent = uf;
     sel.appendChild(opt);
@@ -575,17 +609,29 @@ function montarSeletorEstado(container, dados, valorAtual, onChange){
   container.appendChild(sel);
 }
 
-// Periodo e estado escolhidos uma vez so, no cabecalho -- usados por Ranking,
-// Faixa/Classe/Tarifa/Distribuidora e pelo drill-down geografico, pra nao ter
-// recortes de tempo/UF diferentes ao mesmo tempo entre secoes (era a causa da
-// "cidade lider" divergir entre secoes antes: cada uma usava seu proprio filtro).
+// Intervalo e estado escolhidos uma vez so, no cabecalho -- usados por TODAS as
+// secoes de tempo (Tendencia, Comparar marcas, Leaderboard, Ranking, Faixa/Classe/
+// Tarifa/Distribuidora e o drill-down geografico), pra nao ter recortes de tempo/UF
+// diferentes ao mesmo tempo entre secoes (era a causa da "cidade lider" divergir
+// entre secoes antes: cada uma usava seu proprio filtro). De == Ate funciona como
+// "um periodo so"; De < Ate soma o intervalo nas secoes de composicao e compara os
+// dois extremos em Tendencia/Leaderboard.
 function montarFiltrosGlobais(){
   var dados = DADOS.campos[estado.campo];
-  var ufs = Object.keys(dados.marcas_por_uf).sort();
+  var ufs = Object.keys(dados.uf_regiao).sort();
   if (ufs.indexOf(estado.estadoGlobal) === -1) estado.estadoGlobal = ufs[0];
 
-  montarSeletorPeriodo(document.getElementById("filtro-periodo-global"), dados, estado.periodoGlobal, function(v){
-    estado.periodoGlobal = v; renderRanking(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
+  function rerenderTudoQueDependeDoIntervalo(){
+    renderTendencia(); renderMarcaEspecifica(); renderLeaderboard();
+    renderRanking(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
+  }
+  montarSeletorAno(document.getElementById("filtro-intervalo-de"), dados, estado.intervaloDe, function(v){
+    estado.intervaloDe = v; if (estado.intervaloDe > estado.intervaloAte) estado.intervaloAte = v;
+    montarFiltrosGlobais(); rerenderTudoQueDependeDoIntervalo();
+  });
+  montarSeletorAno(document.getElementById("filtro-intervalo-ate"), dados, estado.intervaloAte, function(v){
+    estado.intervaloAte = v; if (estado.intervaloAte < estado.intervaloDe) estado.intervaloDe = v;
+    montarFiltrosGlobais(); rerenderTudoQueDependeDoIntervalo();
   });
   montarSeletorEstado(document.getElementById("filtro-estado-global"), dados, estado.estadoGlobal, function(v){
     // O seletor do cabecalho e um atalho "ir direto pro municipio" -- pula a
@@ -621,12 +667,12 @@ function calcularLeaderboard(dados, chaveDe, chaveAte){
 }
 
 function resumoDestaques(dados){
-  var linhas = calcularLeaderboard(dados, estado.anoDeGrafico, estado.anoAteGrafico);
+  var linhas = calcularLeaderboard(dados, estado.intervaloDe, estado.intervaloAte);
   var porShareFinal = linhas.slice().sort(function(a,b){ return b.share_final_pct - a.share_final_pct; });
   var porDelta = linhas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
   return {
-    anoBase: estado.anoDeGrafico,
-    anoRecente: estado.anoAteGrafico,
+    anoBase: estado.intervaloDe,
+    anoRecente: estado.intervaloAte,
     lider: porShareFinal[0],
     maiorAlta: porDelta[0],
     maiorQueda: porDelta[porDelta.length-1],
@@ -743,17 +789,10 @@ function renderLegenda(container, nomes){
 function renderTendencia(){
   var dados = DADOS.campos[estado.campo];
 
-  montarSeletorAno(document.getElementById("filtro-tendencia-de"), dados, estado.anoDeGrafico, function(v){
-    estado.anoDeGrafico = v; if (estado.anoDeGrafico > estado.anoAteGrafico) estado.anoAteGrafico = v; renderTendencia();
-  });
-  montarSeletorAno(document.getElementById("filtro-tendencia-ate"), dados, estado.anoAteGrafico, function(v){
-    estado.anoAteGrafico = v; if (estado.anoAteGrafico < estado.anoDeGrafico) estado.anoDeGrafico = v; renderTendencia();
-  });
-
-  // As TOP_N_COR marcas em destaque reagem ao periodo De/Ate selecionado (nao
-  // ficam fixas) -- uma marca que so foi relevante fora da janela visivel nao
+  // As TOP_N_COR marcas em destaque reagem ao Intervalo selecionado no cabecalho
+  // (nao ficam fixas) -- uma marca que so foi relevante fora da janela visivel nao
   // deveria ocupar uma das cores enquanto voce olha so pra um recorte especifico.
-  var top8Dinamico = topMarcasPorPeriodos(dados, anosNoRange(estado.anoDeGrafico, estado.anoAteGrafico), TOP_N_COR);
+  var top8Dinamico = topMarcasPorPeriodos(dados, anosNoRange(estado.intervaloDe, estado.intervaloAte), TOP_N_COR);
   var marcas = top8Dinamico.concat(dados.marcas_cor.slice(-2));
   var serieMensalDin = serieMensalDinamica(dados, marcas);
   var serieBruta = estado.granularidade === "mensal" ? serieMensalDin
@@ -761,7 +800,7 @@ function renderTendencia(){
                   : agregarAnual(serieMensalDin);
   var periodos = serieBruta.filter(function(p){
     var ano = p.periodo.slice(0,4);
-    return ano >= estado.anoDeGrafico && ano <= estado.anoAteGrafico;
+    return ano >= estado.intervaloDe && ano <= estado.intervaloAte;
   });
 
   renderLegenda(document.getElementById("legenda-tendencia"), marcas);
@@ -875,7 +914,7 @@ function renderMultiplos(){
   var indices = [];
   periodosTodos.forEach(function(p, i){
     var ano = p.slice(0, 4);
-    if (ano >= estado.anoDeGrafico && ano <= estado.anoAteGrafico) indices.push(i);
+    if (ano >= estado.intervaloDe && ano <= estado.intervaloAte) indices.push(i);
   });
 
   var totais = Object.keys(spm.valores).map(function(marca){
@@ -884,7 +923,7 @@ function renderMultiplos(){
   }).filter(function(m){ return m.soma > 0.05; }).sort(function(a, b){ return b.soma - a.soma; });
 
   var top = totais.slice(0, MULTIPLOS_TOP_N);
-  var rotuloPeriodo = estado.anoDeGrafico === estado.anoAteGrafico ? "em " + estado.anoDeGrafico : "entre " + estado.anoDeGrafico + " e " + estado.anoAteGrafico;
+  var rotuloPeriodo = estado.intervaloDe === estado.intervaloAte ? "em " + estado.intervaloDe : "entre " + estado.intervaloDe + " e " + estado.intervaloAte;
   document.getElementById("legenda-multiplos-caption").textContent =
     "As " + top.length + " maiores marcas " + rotuloPeriodo + ", em escala individual — incluindo marcas hoje " +
     "agregadas em \"Outros\" no gráfico principal.";
@@ -998,7 +1037,7 @@ function renderMarcaEspecifica(){
     var completa = serieUnicaPorGranularidade(spm.periodos_mensais, spm.valores[nome], estado.granularidade);
     var filtrada = completa.filter(function(p){
       var ano = p.periodo.slice(0,4);
-      return ano >= estado.anoDeGrafico && ano <= estado.anoAteGrafico;
+      return ano >= estado.intervaloDe && ano <= estado.intervaloAte;
     });
     var total = filtrada.reduce(function(a,p){ return a+p.valor; }, 0);
     var pico = filtrada.reduce(function(m,p){ return p.valor > m.valor ? p : m; }, {valor:-1, periodo:""});
@@ -1075,17 +1114,19 @@ function renderMarcaEspecifica(){
 function renderLeaderboard(){
   var dados = DADOS.campos[estado.campo];
 
-  montarSeletorPeriodo(document.getElementById("filtro-periodo-de"), dados, estado.periodoDe, function(v){ estado.periodoDe = v; renderLeaderboard(); });
-  montarSeletorPeriodo(document.getElementById("filtro-periodo-ate"), dados, estado.periodoAte, function(v){ estado.periodoAte = v; renderLeaderboard(); });
-
-  var linhasTodas = calcularLeaderboard(dados, estado.periodoDe, estado.periodoAte);
+  var linhasTodas = calcularLeaderboard(dados, estado.intervaloDe, estado.intervaloAte);
 
   var ordenadaPP = linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
   var subiuMais = ordenadaPP[0], caiuMais = ordenadaPP[ordenadaPP.length-1];
+  if (estado.intervaloDe === estado.intervaloAte){
+    document.getElementById("legenda-leaderboard-caption").textContent =
+      "Selecione um intervalo (De ≠ Até) no cabeçalho para comparar crescimento entre dois pontos no tempo.";
+  } else {
   document.getElementById("legenda-leaderboard-caption").textContent =
-    "De " + rotuloExtenso(dados, estado.periodoDe) + " para " + rotuloExtenso(dados, estado.periodoAte) + ": " +
+    "De " + rotuloExtenso(dados, estado.intervaloDe) + " para " + rotuloExtenso(dados, estado.intervaloAte) + ": " +
     subiuMais.marca + " ganhou mais espaço (" + fmtPct(subiuMais.delta_pontos_percentuais) + " de participação), " +
     "enquanto " + caiuMais.marca + " foi quem mais perdeu (" + fmtPct(caiuMais.delta_pontos_percentuais) + ").";
+  }
 
   var metricaCampo = estado.metrica === "pontos" ? "delta_pontos_percentuais" : "delta_mw_absoluto";
   var linhas = linhasTodas.slice().sort(function(a,b){ return b[metricaCampo] - a[metricaCampo]; });
@@ -1123,10 +1164,10 @@ function renderLeaderboard(){
     (function(item){
       anexarHover(hit, function(mx,my){
         var linhasTip = [
-          { nome:"Share " + dados.periodos.rotulos[estado.periodoDe], valor: item.share_inicial_pct.toFixed(2) + "%" },
-          { nome:"Share " + dados.periodos.rotulos[estado.periodoAte], valor: item.share_final_pct.toFixed(2) + "%" },
-          { nome:"MW " + dados.periodos.rotulos[estado.periodoDe], valor: fmtMW(item.mw_inicial) },
-          { nome:"MW " + dados.periodos.rotulos[estado.periodoAte], valor: fmtMW(item.mw_final) }
+          { nome:"Share " + dados.periodos.rotulos[estado.intervaloDe], valor: item.share_inicial_pct.toFixed(2) + "%" },
+          { nome:"Share " + dados.periodos.rotulos[estado.intervaloAte], valor: item.share_final_pct.toFixed(2) + "%" },
+          { nome:"MW " + dados.periodos.rotulos[estado.intervaloDe], valor: fmtMW(item.mw_inicial) },
+          { nome:"MW " + dados.periodos.rotulos[estado.intervaloAte], valor: fmtMW(item.mw_final) }
         ];
         if (!item.entrante_novo && item.crescimento_relativo_pct !== null){
           linhasTip.push({ nome:"Crescimento relativo", valor: (item.crescimento_relativo_pct>=0?"+":"") + item.crescimento_relativo_pct.toFixed(0) + "%" });
@@ -1167,10 +1208,15 @@ function renderLeaderboard(){
 function calcularCategoria(dados, cfg){
   var marcas = dados.marcas_cor;
   var categorias = dados[cfg.chaveOrdem] || [];
-  var periodo = estado.periodoGlobal;
-  var catMw = dados.periodos[cfg.chaveMw][periodo] || {};
-  var perfil = dados.periodos[cfg.chavePerfil][periodo] || {};
-  var especialistas = dados.periodos[cfg.chaveEspecialistas][periodo] || {};
+  var de = estado.intervaloDe, ate = estado.intervaloAte;
+  var chaves = chavesNoIntervalo(de, ate);
+  var catMw = somarDictAninhado(dados.periodos[cfg.chaveMw], chaves);
+  var perfil = somarPerfil(dados.periodos[cfg.chavePerfil], chaves);
+  // Especialistas nao e somavel entre periodos (o payload guarda so o top-6 de
+  // CADA periodo, nao a composicao completa -- uma marca de nicho relevante so
+  // quando somada nao aparece em nenhum periodo isolado) -- por isso a tabela
+  // sempre reflete o periodo final do intervalo, nunca a soma.
+  var especialistas = dados.periodos[cfg.chaveEspecialistas][ate] || {};
 
   var linhas = categorias.map(function(c){
     var porMarca = catMw[c] || {};
@@ -1189,10 +1235,10 @@ function calcularCategoria(dados, cfg){
   var texto = "";
   if (maior){
     var espMaior = (especialistas[maior.categoria] || [])[0];
-    texto = maior.categoria + " é " + cfg.artigo + " maior " + cfg.rotuloSingular + " " + emPeriodo(dados, periodo) + ", com " +
+    texto = maior.categoria + " é " + cfg.artigo + " maior " + cfg.rotuloSingular + " " + emIntervalo(dados, de, ate) + ", com " +
       fmtMW(maior.total_mw) + " (" + (totalGeral>0?maior.total_mw/totalGeral*100:0).toFixed(0) +
       "% da potência em " + maior.instalacoes.toLocaleString("pt-BR") + " instalações)" +
-      (espMaior ? ", e " + espMaior[0] + " é a marca mais presente lá (" + espMaior[1].toFixed(1) + "%" +
+      (espMaior ? ", e " + espMaior[0] + " é a marca mais presente nessa " + cfg.rotuloSingular + " (" + espMaior[1].toFixed(1) + "%" +
         (espMaior[3] ? ", " + espMaior[3].toFixed(1) + "× a participação geral dela" : "") + ")" : "") + ".";
     if (cfg.duasPontas && comMw.length > 1){
       var topo = comMw[comMw.length-1];
@@ -1256,7 +1302,10 @@ function renderCategoria(cfg){
   document.getElementById(cfg.idExplicacao).textContent =
     "Índice de especialização = participação da marca na " + cfg.rotuloSingular + " ÷ participação no mercado total. " +
     "Valores acima de 1 indicam concentração acima da média; 3×, por exemplo, indica presença três vezes maior que a " +
-    "média de mercado. A lista não se limita às marcas em destaque no gráfico — inclui especialistas de nicho.";
+    "média de mercado. A lista não se limita às marcas em destaque no gráfico — inclui especialistas de nicho." +
+    (estado.intervaloDe !== estado.intervaloAte
+      ? " Esta tabela em especial reflete sempre o período final do intervalo (" + rotuloExtenso(DADOS.campos[estado.campo], estado.intervaloAte) + "), não a soma do intervalo inteiro."
+      : "");
 
   var tabela = document.getElementById(cfg.idTabela);
   limpar(tabela);
@@ -1407,20 +1456,21 @@ function renderBreadcrumbGeo(){
 
 function renderGeografia(){
   var dados = DADOS.campos[estado.campo];
-  var periodo = estado.periodoGlobal;
+  var de = estado.intervaloDe, ate = estado.intervaloAte;
   renderBreadcrumbGeo();
   if (estado.geoNivel === "regiao"){
-    renderGeoRegioes(dados, periodo);
+    renderGeoRegioes(dados, de, ate);
   } else if (estado.geoNivel === "uf"){
-    renderGeoUfs(dados, periodo, estado.geoRegiaoAtual);
+    renderGeoUfs(dados, de, ate, estado.geoRegiaoAtual);
   } else {
-    renderGeoMunicipios(dados, periodo, estado.estadoGlobal);
+    renderGeoMunicipios(dados, de, ate, estado.estadoGlobal);
   }
 }
 
-function renderGeoRegioes(dados, periodo){
+function renderGeoRegioes(dados, de, ate){
   var marcas = dados.marcas_cor;
-  var ufMw = dados.periodos.uf_mw[periodo] || {};
+  var chaves = chavesNoIntervalo(de, ate);
+  var ufMw = somarDictAninhado(dados.periodos.uf_mw, chaves);
   var linhas = regioesDisponiveis(dados).map(function(reg){
     var ufs = ufsDaRegiao(dados, reg);
     var valores = marcas.map(function(){ return 0; });
@@ -1435,20 +1485,24 @@ function renderGeoRegioes(dados, periodo){
   renderLegenda(document.getElementById("geo-legend"), marcas);
   var lider = linhas[0];
   document.getElementById("geo-caption").textContent = lider
-    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emPeriodo(dados, periodo) +
+    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emIntervalo(dados, de, ate) +
       " entre as 5 regiões do Brasil. Clique numa região para ver os estados."
     : "";
   document.getElementById("geo-tabela-detalhe").hidden = true;
+  document.getElementById("geo-tabela-detalhe").open = false;
+  document.getElementById("geo-tabela-detalhe-titulo").textContent = "Ver tabela completa";
+  document.getElementById("wrap-geo").hidden = false;
+  document.getElementById("geo-legend").hidden = false;
   desenharBarrasGeo("svg-geo", linhas, marcas, {
     ML: 104,
     onClick: function(row){ estado.geoRegiaoAtual = row.nome; estado.geoNivel = "uf"; renderGeografia(); },
   });
 }
 
-function renderGeoUfs(dados, periodo, regiao){
+function renderGeoUfs(dados, de, ate, regiao){
   var marcas = dados.marcas_cor;
-  var ufMw = dados.periodos.uf_mw[periodo] || {};
-  var ufLideres = dados.periodos.uf_lideres[periodo] || {};
+  var chaves = chavesNoIntervalo(de, ate);
+  var ufMw = somarDictAninhado(dados.periodos.uf_mw, chaves);
   var linhas = ufsDaRegiao(dados, regiao).map(function(uf){
     var porMarca = ufMw[uf] || {};
     var valores = marcas.map(function(m){ return porMarca[m] || 0; });
@@ -1458,47 +1512,79 @@ function renderGeoUfs(dados, periodo, regiao){
 
   renderLegenda(document.getElementById("geo-legend"), marcas);
   var lider = linhas[0];
-  var liderReal = lider ? (ufLideres[lider.nome] || {}) : {};
+  // uf_lideres do payload e precomputado so por periodo unico (marca real, sem o
+  // corte pro top-N do grafico) -- pra um intervalo com mais de um periodo, o lider
+  // e recalculado a partir do proprio uf_mw ja somado (liderPorValores), que usa o
+  // mesmo top-N do grafico em vez do universo completo de marcas.
+  var liderReal = lider
+    ? (de === ate ? ((dados.periodos.uf_lideres[ate] || {})[lider.nome] || null) : liderPorValores(marcas, lider.valores_mw))
+    : null;
   document.getElementById("geo-caption").textContent = lider
-    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emPeriodo(dados, periodo) + " entre os estados de " +
-      regiao + ", com " + (liderReal.nome || "—") + " como marca mais presente no estado. Clique em um estado para ver os municípios."
-    : "Nenhum estado de " + regiao + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
+    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emIntervalo(dados, de, ate) + " entre os estados de " +
+      regiao + ", com " + (liderReal ? liderReal.nome : "—") + " como marca mais presente no estado. Clique em um estado para ver os municípios."
+    : "Nenhum estado de " + regiao + " com instalação identificada " + emIntervalo(dados, de, ate) + ".";
   document.getElementById("geo-tabela-detalhe").hidden = true;
+  document.getElementById("geo-tabela-detalhe").open = false;
+  document.getElementById("geo-tabela-detalhe-titulo").textContent = "Ver tabela completa";
+  document.getElementById("wrap-geo").hidden = false;
+  document.getElementById("geo-legend").hidden = false;
   desenharBarrasGeo("svg-geo", linhas, marcas, {
     ML: 46,
     onClick: function(row){ estado.estadoGlobal = row.nome; estado.geoNivel = "municipio"; renderGeografia(); },
   });
 }
 
-function renderGeoMunicipios(dados, periodo, uf){
+function renderGeoMunicipios(dados, de, ate, uf){
+  // Municipio nunca teve um top-N de cor proprio que valesse manter num grafico
+  // empilhado (ficava ilegivel com 600+ municipios) -- aqui e so a lista ordenada
+  // por MW. "mw" e o breakdown esparso "marcas_idx" (indice em
+  // municipios_marcas_todas) NAO sao truncados por municipio, entao tanto o total
+  // quanto o lider real por marca continuam exatos pra qualquer intervalo somado,
+  // nao so um retrato de um ano.
+  var chaves = chavesNoIntervalo(de, ate);
   var info = dados.municipios_info || {};
-  var brutos = dados.periodos.municipios_mw[periodo] || {};
-  var marcas = dados.marcas_por_uf[uf] || dados.marcas_cor;
+  var marcasTodas = dados.municipios_marcas_todas || [];
+  var somaPorMunicipio = {};
+  chaves.forEach(function(chave){
+    var brutos = dados.periodos.municipios_mw[chave] || {};
+    Object.keys(brutos).forEach(function(cod){
+      var v = brutos[cod];
+      if (!somaPorMunicipio[cod]) somaPorMunicipio[cod] = { mw: 0, marcas: {} };
+      somaPorMunicipio[cod].mw += v.mw;
+      (v.marcas_idx || []).forEach(function(par){
+        somaPorMunicipio[cod].marcas[par[0]] = (somaPorMunicipio[cod].marcas[par[0]] || 0) + par[1];
+      });
+    });
+  });
 
-  var linhas = Object.keys(brutos)
+  var linhas = Object.keys(somaPorMunicipio)
     .filter(function(cod){ var inf = info[cod]; return inf && inf[1] === uf; })
     .map(function(cod){
-      var inf = info[cod], v = brutos[cod];
-      return { nome: inf[0], valores_mw: v.valores_mw, total_mw: v.mw, marcaLider: v.marca_lider_nome || "—" };
+      var inf = info[cod], s = somaPorMunicipio[cod];
+      var ranking = Object.keys(s.marcas).map(function(idxStr){
+        return { nome: marcasTodas[parseInt(idxStr, 10)], mw: s.marcas[idxStr] };
+      }).sort(function(a,b){ return b.mw - a.mw; });
+      return { nome: inf[0], total_mw: s.mw, lideres: ranking.slice(0, 3).map(function(r){ return r.nome; }) };
     })
     .sort(function(a,b){ return b.total_mw - a.total_mw; });
   var totalUf = linhas.reduce(function(a,m){ return a + m.total_mw; }, 0);
 
-  renderLegenda(document.getElementById("geo-legend"), marcas);
+  document.getElementById("geo-legend").hidden = true;
+  document.getElementById("wrap-geo").hidden = true;
   document.getElementById("geo-caption").textContent = linhas.length
-    ? linhas[0].nome + " lidera entre os " + linhas.length + " municípios de " + uf + " " + emPeriodo(dados, periodo) + ", com " +
+    ? linhas[0].nome + " lidera entre os " + linhas.length + " municípios de " + uf + " " + emIntervalo(dados, de, ate) + ", com " +
       fmtMW(linhas[0].total_mw) + " (" + (totalUf>0?linhas[0].total_mw/totalUf*100:0).toFixed(1) + "% do estado), e " +
-      linhas[0].marcaLider + " é a marca líder no município."
-    : "Nenhum município de " + uf + " com instalação identificada " + emPeriodo(dados, periodo) + ".";
-
-  desenharBarrasGeo("svg-geo", linhas.slice(0, DADOS.municipios_detalhe_top_n || 20), marcas, { ML: 130 });
+      (linhas[0].lideres[0] || "—") + " é a marca líder no município."
+    : "Nenhum município de " + uf + " com instalação identificada " + emIntervalo(dados, de, ate) + ".";
 
   var detalhe = document.getElementById("geo-tabela-detalhe");
   detalhe.hidden = false;
+  detalhe.open = true;
+  document.getElementById("geo-tabela-detalhe-titulo").textContent = "Municípios de " + uf;
   var tabela = document.getElementById("tabela-geo");
   limpar(tabela);
   var thead = el("thead"); var trh = el("tr");
-  ["#","Município","MW","% do estado","Marca líder"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  ["#","Município","MW","% do estado","Líder 1","Líder 2","Líder 3"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
   linhas.forEach(function(m, i){
@@ -1507,7 +1593,9 @@ function renderGeoMunicipios(dados, periodo, uf){
     tr.appendChild(el("td", {text:m.nome}));
     tr.appendChild(el("td", {text:fmtMW(m.total_mw)}));
     tr.appendChild(el("td", {text:(totalUf>0?m.total_mw/totalUf*100:0).toFixed(2)+"%"}));
-    tr.appendChild(el("td", {text:m.marcaLider}));
+    tr.appendChild(el("td", {text:m.lideres[0] || "—"}));
+    tr.appendChild(el("td", {text:m.lideres[1] || "—"}));
+    tr.appendChild(el("td", {text:m.lideres[2] || "—"}));
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
@@ -1523,8 +1611,9 @@ function renderRanking(){
     btn.setAttribute("aria-pressed", String(btn.textContent === (estado.topN === "todas" ? "Todas" : "Top " + estado.topN)));
   });
 
-  var marcasMw = dados.periodos.marcas_mw[estado.periodoGlobal] || {};
-  var totalMw = dados.periodos.totais_mw[estado.periodoGlobal] || 0;
+  var chaves = chavesNoIntervalo(estado.intervaloDe, estado.intervaloAte);
+  var marcasMw = somarDict(dados.periodos.marcas_mw, chaves);
+  var totalMw = somarEscalar(dados.periodos.totais_mw, chaves);
   var linhas = Object.keys(marcasMw).map(function(marca){
     var mw = marcasMw[marca];
     return { marca: marca, mw: mw, share: totalMw > 0 ? mw/totalMw*100 : 0 };
@@ -1538,7 +1627,7 @@ function renderRanking(){
   var top3Soma = linhas.slice(0, 3).reduce(function(a,l){ return a+l.share; }, 0);
   document.getElementById("legenda-ranking-caption").textContent =
     linhas.length + " marcas de " + (estado.campo === "modulo" ? "módulo" : "inversor") + " disputam espaço " +
-    emPeriodo(dados, estado.periodoGlobal) + "; as 3 maiores (" +
+    emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + "; as 3 maiores (" +
     linhas.slice(0,3).map(function(l){ return l.marca; }).join(", ") + ") somam " + top3Soma.toFixed(0) + "% do mercado.";
 
   var tabela = document.getElementById("tabela-ranking");
@@ -1649,17 +1738,21 @@ function montarPainelAjuda(){
     ["O que este painel revela",
      "Quais marcas de painel solar e de inversor vêm ganhando espaço no mercado brasileiro, e em quais regiões esse " +
      "movimento é mais forte. Base: registros da ANEEL para instalações residenciais e comerciais desde 2020."],
+    ["Intervalo, no cabeçalho",
+     "Um único controle de tempo para o painel inteiro. Com os dois extremos iguais, cada seção mostra um período " +
+     "específico; alargando o intervalo, as seções de composição (Ranking, Faixa/Classe/Tarifa/Distribuidora, " +
+     "Geografia) somam o período inteiro, e a Tendência e o Leaderboard comparam o início com o fim do intervalo."],
     ["Participação de mercado ao longo do tempo",
-     "Evolução mensal da potência instalada por marca. Os seletores \"Gráfico de\" / \"até\" ajustam o intervalo " +
-     "analisado, com visão mensal, trimestral ou anual. Os valores detalhados aparecem ao passar o cursor sobre o gráfico."],
+     "Evolução mensal da potência instalada por marca, no intervalo escolhido, com visão mensal, trimestral ou " +
+     "anual. Os valores detalhados aparecem ao passar o cursor sobre o gráfico."],
     ["Comparar marcas específicas",
      "Isola a trajetória de até 8 marcas selecionadas — útil para acompanhar marcas de menor participação que não " +
      "aparecem em destaque no gráfico principal."],
     ["Quem ganhou e quem perdeu espaço",
-     "Compara dois períodos — anos completos ou os últimos 12 meses — e identifica imediatamente quem ganhou e quem " +
-     "perdeu participação de mercado entre eles."],
+     "Compara o início e o fim do intervalo selecionado e identifica imediatamente quem ganhou e quem perdeu " +
+     "participação de mercado entre eles."],
     ["Ranking completo de marcas",
-     "Todas as marcas identificadas em um período, ordenadas por volume instalado — não se limita às marcas em " +
+     "Todas as marcas identificadas no intervalo, ordenadas por volume instalado — não se limita às marcas em " +
      "destaque no gráfico principal."],
     ["Comportamento por faixa de potência",
      "Quais marcas se destacam em cada faixa de porte, do telhado residencial (≤10 kW) a usinas de minigeração " +
