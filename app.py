@@ -1,6 +1,6 @@
 """Radar de Marcas Solares -- versao Streamlit.
 
-Replica as mesmas 4 secoes do dashboard HTML (dashboard/dashboard.html): tendencia,
+Replica as mesmas 4 secoes do dashboard HTML (dashboard/index.html): tendencia,
 leaderboard de crescimento, ranking completo e corte por UF. Mesma logica de
 normalizacao de marca e deteccao de atraso de cadastro da ANEEL, so a camada de
 apresentacao troca de HTML/SVG a mao por Streamlit + Plotly.

@@ -4,8 +4,8 @@ Pipeline de dados + dashboard interativo sobre a evolução de marcas de painel
 solar e inversor na geração distribuída fotovoltaica brasileira, a partir dos
 dados abertos da ANEEL.
 
-**[Ver dashboard ao vivo](https://matheusolb.github.io/mercado-solar-gd/dashboard.html)**
-— ou baixe [`dashboard/dashboard.html`](dashboard/dashboard.html) e abra direto no
+**[Ver dashboard ao vivo](https://matheusolb.github.io/mercado-solar-gd/)**
+— ou baixe [`dashboard/index.html`](dashboard/index.html) e abra direto no
 navegador (é autocontido, sem servidor).
 
 ## O problema
@@ -45,7 +45,7 @@ dados/
   raw/            dados brutos da ANEEL (parquet) -- nao versionado, ver abaixo
   processados/    saidas do pipeline: mapeamento de marcas, agregados, banco SQLite
 scripts/          os 5 scripts do pipeline + a lista semente de marcas
-dashboard/        dashboard.html (autocontido) + o JSON de dados que o alimenta
+dashboard/        index.html (autocontido) + o JSON de dados que o alimenta
 ```
 
 ## Como rodar
@@ -73,7 +73,7 @@ que a ANEEL atualizar os dados, sem refazer o resto):
 python montar_mapa_marcas.py          # normaliza os nomes de fabricante -> marca canonica
 python montar_agregado_marcas.py      # junta os dois parquets e agrega por mes/UF/municipio/marca
 python montar_payload_dashboard.py    # gera o JSON leve que o dashboard consome
-python gerar_dashboard_html.py        # monta dashboard/dashboard.html a partir do template + JSON
+python gerar_dashboard_html.py        # monta dashboard/index.html a partir do template + JSON
 python exportar_sqlite.py             # opcional: consolida tudo num dados/processados/mercado_solar.db
 ```
 

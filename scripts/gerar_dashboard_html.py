@@ -46,7 +46,10 @@ def main():
 </body>
 </html>
 """
-    caminho_html = os.path.join(PASTA_DASHBOARD, "dashboard.html")
+    # index.html (nao dashboard.html) de proposito -- e o nome que o GitHub Pages
+    # serve automaticamente na raiz do site, sem precisar do nome do arquivo na URL
+    # (matheusolb.github.io/mercado-solar-gd/ em vez de .../dashboard.html).
+    caminho_html = os.path.join(PASTA_DASHBOARD, "index.html")
     with open(caminho_html, "w", encoding="utf-8") as f:
         f.write(completo)
     print(f"dashboard local salvo: {caminho_html}")

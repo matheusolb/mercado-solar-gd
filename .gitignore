@@ -26,7 +26,7 @@ powerbi/
 Mercado-Solar-PowerBI.zip
 scripts/gerar_powerbi.py
 
-# Artefatos de build do dashboard -- 100% derivados de dashboard.html (que ja
-# embute o mesmo JSON). Regenerar com scripts/gerar_dashboard_html.py.
+# Artefatos de build do dashboard -- 100% derivados de dashboard/index.html (que
+# ja embute o mesmo JSON). Regenerar com scripts/gerar_dashboard_html.py.
 dashboard/dashboard_dados.json
 dashboard/dashboard_fragment.html
