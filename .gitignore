@@ -17,6 +17,10 @@ __pycache__/
 # Config local do Claude Code (caminhos de maquina, lock de sessao) -- nao e do projeto
 .claude/
 
+# Atalho local com caminho absoluto do Python desta maquina -- nao e portavel,
+# cada um cria o seu (ver README, secao "Como rodar")
+atualizar.bat
+
 # Entrega separada em Power BI -- fora do escopo deste repo (HTML + Streamlit)
 powerbi/
 Mercado-Solar-PowerBI.zip

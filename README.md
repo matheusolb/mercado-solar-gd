@@ -59,7 +59,15 @@ ANEEL](https://dadosabertos.aneel.gov.br/dataset/relacao-de-empreendimentos-de-g
 (recursos "empreendimento-geracao-distribuida" e
 "empreendimento-gd-informacoes-tecnicas-fotovoltaica") e coloque em `dados/raw/`.
 
-Depois, na pasta `scripts/`, nessa ordem:
+Depois, na pasta `scripts/`, o jeito mais simples é rodar tudo de uma vez:
+
+```bash
+python atualizar_tudo.py              # os 4 passos principais em sequência
+python atualizar_tudo.py --sqlite     # idem, e também reconstrói mercado_solar.db (~800MB, mais lento)
+```
+
+Ou passo a passo, se preferir rodar só uma etapa (por exemplo, só o passo 1 depois
+que a ANEEL atualizar os dados, sem refazer o resto):
 
 ```bash
 python montar_mapa_marcas.py          # normaliza os nomes de fabricante -> marca canonica
@@ -69,8 +77,7 @@ python gerar_dashboard_html.py        # monta dashboard/dashboard.html a partir 
 python exportar_sqlite.py             # opcional: consolida tudo num dados/processados/mercado_solar.db
 ```
 
-Cada script é independente e le a saida do anterior — dá pra rodar só o passo 1
-de novo quando a ANEEL atualizar os dados, sem refazer tudo.
+Cada script é independente e lê a saída do anterior.
 
 ## Versão alternativa em Streamlit
 
@@ -98,12 +105,12 @@ e `seed_marca_inversor.csv`) que qualquer um pode editar:
 Depois de editar a lista semente, rode:
 
 ```bash
-python montar_mapa_marcas.py --modo reclassificar_outros
+python atualizar_tudo.py --reclassificar-outros
 ```
 
 Isso reclassifica só o backlog de "Outros" contra a lista semente atualizada —
 não reabre nada que já foi classificado, e não toca em linhas com
-`revisao_manual=True`. Depois rode os scripts 2, 3 e 4 de novo para refletir no
+`revisao_manual=True` — e já roda os outros 3 passos em seguida pra refletir no
 dashboard.
 
 ## Duas marcas no mesmo campo

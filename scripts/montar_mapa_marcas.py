@@ -158,10 +158,14 @@ def montar_mapa(campo: str, df_base: pd.DataFrame, modo: str) -> tuple[pd.DataFr
     return mapa_final, resumo
 
 
-def main():
+def main(argv: list[str] | None = None):
+    """`argv=None` le da linha de comando (uso normal). Passar `argv=[]` (lista vazia,
+    nao None) forca o modo default mesmo se o processo chamador tiver seus proprios
+    argumentos -- e o que atualizar_tudo.py faz, pra nao confundir --sqlite dali com
+    --modo daqui."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--modo", choices=["incremental", "reclassificar_outros"], default="incremental")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     arq = resolver_arquivo_fotovoltaica()
     print(f"Lendo {arq}")
