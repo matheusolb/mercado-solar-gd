@@ -4,8 +4,9 @@ Pipeline de dados + dashboard interativo sobre a evolução de marcas de painel
 solar e inversor na geração distribuída fotovoltaica brasileira, a partir dos
 dados abertos da ANEEL.
 
-**[Ver dashboard](dashboard/dashboard.html)** (abra o arquivo direto no navegador — é
-autocontido, sem servidor).
+**[Ver dashboard ao vivo](https://matheusolb.github.io/mercado-solar-gd/dashboard.html)**
+— ou baixe [`dashboard/dashboard.html`](dashboard/dashboard.html) e abra direto no
+navegador (é autocontido, sem servidor).
 
 ## O problema
 
