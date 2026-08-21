@@ -71,6 +71,16 @@
   .dash-sub{margin:2px 0 0; font-size:13.5px; color:var(--tinta-2); max-width:72ch; line-height:1.5;}
   .dash-sub strong{color:var(--tinta);}
 
+  /* Congelada no topo ao rolar -- so os controles (nao a nota explicativa
+     abaixo, que so precisa ser lida uma vez) ficam fixos, pra nao precisar
+     voltar ao topo da pagina toda vez que quiser trocar o intervalo/estado.
+     z-index abaixo de .tooltip (40) e .botao-flutuante (45), acima do
+     conteudo normal dos cards. */
+  .filtros-fixas{
+    position:sticky; top:0; z-index:20;
+    background:var(--pg-plano); margin:0 -20px; padding:10px 20px;
+    border-bottom:1px solid var(--borda);
+  }
   .filtros{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
   .filtro-grupo{display:inline-flex; gap:2px; background:var(--superficie); border:1px solid var(--borda); border-radius:9px; padding:3px;}
   .filtro-grupo button{
@@ -219,14 +229,16 @@
 
   <section class="card" id="painel-ajuda" hidden></section>
 
-  <div class="filtros filtros-globais">
-    <div class="filtro-grupo" id="filtro-campo"></div>
-    <label class="filtro-rotulo" for="filtro-intervalo-de-select">Intervalo</label>
-    <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-de"></div>
-    <span class="filtro-seta">→</span>
-    <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-ate"></div>
-    <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
-    <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
+  <div class="filtros-fixas">
+    <div class="filtros filtros-globais">
+      <div class="filtro-grupo" id="filtro-campo"></div>
+      <label class="filtro-rotulo" for="filtro-intervalo-de-select">Intervalo</label>
+      <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-de"></div>
+      <span class="filtro-seta">→</span>
+      <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-ate"></div>
+      <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
+      <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
+    </div>
   </div>
   <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil.</p>
 
