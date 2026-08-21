@@ -246,6 +246,7 @@
 
   <div class="filtros-fixas">
     <div class="filtros filtros-globais">
+      <label class="filtro-rotulo" for="filtro-campo-select">Fabricante</label>
       <div class="filtro-grupo" id="filtro-campo"></div>
       <label class="filtro-rotulo" for="filtro-intervalo-de-select">Intervalo</label>
       <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-de"></div>
@@ -253,9 +254,11 @@
       <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-ate"></div>
       <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
       <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
+      <label class="filtro-rotulo" for="filtro-categoria-metrica-select">Métrica</label>
+      <div class="filtro-grupo" id="filtro-categoria-metrica"></div>
     </div>
   </div>
-  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil.</p>
+  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
 
   <div class="filtros">
     <button type="button" class="botao-ajuda" id="botao-gerar-relatorio" aria-expanded="false">📄 Gerar resumo</button>
@@ -444,7 +447,7 @@ var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
 
 var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
 
-var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null };
+var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null, categoriaMetrica:"mw" };
 // Vem do payload (montar_payload_dashboard.py); o fallback so cobre a preview
 // crua do template, sem payload embutido.
 var TOP_N_COR = DADOS.top_n_cor || 10;
@@ -584,9 +587,12 @@ function topMarcasPorPeriodos(dados, chaves, n){
 // nao o fixo do payload) a partir de serie_por_marca (todas as marcas reais) +
 // o total/Não-informado ja existentes em serie_mensal (que nao dependem de QUAL
 // top-N esta selecionado -- so o quanto vira "Outros" depende disso).
-function serieMensalDinamica(dados, marcasFold){
+function serieMensalDinamica(dados, marcasFold, porInstalacoes){
   var spm = dados.serie_por_marca;
   var serieRef = dados.serie_mensal;
+  var chaveSpm = porInstalacoes ? "valores_inst" : "valores";
+  var chaveRefValores = porInstalacoes ? "valores_inst" : "valores_mw";
+  var chaveRefTotal = porInstalacoes ? "total_inst" : "total_mw";
   var idxNaoInfRef = dados.marcas_cor.length - 1;
   var top8Idx = {};
   marcasFold.slice(0, TOP_N_COR).forEach(function(m, idx){ top8Idx[m] = idx; });
@@ -594,15 +600,18 @@ function serieMensalDinamica(dados, marcasFold){
   return spm.periodos_mensais.map(function(periodo, i){
     var valores = marcasFold.map(function(){ return 0; });
     var somaTop8 = 0;
-    Object.keys(spm.valores).forEach(function(marca){
-      var v = spm.valores[marca][i] || 0;
+    Object.keys(spm[chaveSpm]).forEach(function(marca){
+      var v = spm[chaveSpm][marca][i] || 0;
       if (marca in top8Idx){ valores[top8Idx[marca]] += v; somaTop8 += v; }
     });
     var ref = serieRef[i];
-    var totalMes = ref ? ref.total_mw : 0;
-    var naoInfMes = ref ? ref.valores_mw[idxNaoInfRef] : 0;
+    var totalMes = ref ? ref[chaveRefTotal] : 0;
+    var naoInfMes = ref ? ref[chaveRefValores][idxNaoInfRef] : 0;
     valores[marcasFold.length-2] = Math.max(0, totalMes - somaTop8 - naoInfMes);
     valores[marcasFold.length-1] = naoInfMes;
+    // "total_mw"/"valores_mw" ficam com esse nome sempre (mesmo em modo Instalacoes)
+    // pra nao propagar a troca de metrica pros reducers genericos (agregarPorChave/
+    // agregarAnual), que so somam campos por nome, sem saber o que representam.
     return { periodo: periodo, total_mw: totalMes, valores_mw: valores };
   });
 }
@@ -722,7 +731,9 @@ function montarFiltrosGlobais(){
 
 function calcularLeaderboard(dados, chaveDe, chaveAte){
   var marcasMw = dados.periodos.marcas_mw, totaisMw = dados.periodos.totais_mw;
+  var marcasInst = dados.periodos.marcas_inst;
   var mDe = marcasMw[chaveDe] || {}, mAte = marcasMw[chaveAte] || {};
+  var iDe = marcasInst[chaveDe] || {}, iAte = marcasInst[chaveAte] || {};
   var totalDe = totaisMw[chaveDe] || 0, totalAte = totaisMw[chaveAte] || 0;
   var todas = {};
   Object.keys(mDe).forEach(function(k){ todas[k] = 1; });
@@ -734,6 +745,7 @@ function calcularLeaderboard(dados, chaveDe, chaveAte){
     if (ki > 0){ crescRel = (kf-ki)/ki*100; } else { novo = kf > 0; }
     return {
       marca: marca, mw_inicial: ki, mw_final: kf,
+      inst_inicial: iDe[marca] || 0, inst_final: iAte[marca] || 0,
       share_inicial_pct: shareI, share_final_pct: shareF,
       delta_pontos_percentuais: shareF - shareI,
       crescimento_relativo_pct: crescRel, entrante_novo: novo,
@@ -868,9 +880,11 @@ function renderTendencia(){
   // As TOP_N_COR marcas em destaque reagem ao Intervalo selecionado no cabecalho
   // (nao ficam fixas) -- uma marca que so foi relevante fora da janela visivel nao
   // deveria ocupar uma das cores enquanto voce olha so pra um recorte especifico.
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
   var top8Dinamico = topMarcasPorPeriodos(dados, anosNoRange(estado.intervaloDe, estado.intervaloAte), TOP_N_COR);
   var marcas = top8Dinamico.concat(dados.marcas_cor.slice(-2));
-  var serieMensalDin = serieMensalDinamica(dados, marcas);
+  var serieMensalDin = serieMensalDinamica(dados, marcas, porInstalacoes);
   var serieBruta = estado.granularidade === "mensal" ? serieMensalDin
                   : estado.granularidade === "trimestral" ? agregarPorChave(serieMensalDin, function(p){ return mesParaTrimestre(p.periodo); })
                   : agregarAnual(serieMensalDin);
@@ -899,7 +913,8 @@ function renderTendencia(){
   for (var t = 0; t <= maxEixo; t += passo){
     var y = MT + alturaGrafico - (t / maxEixo) * alturaGrafico;
     svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
-    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: (t>=1000? (t/1000).toFixed(1)+" GW": Math.round(t)) }));
+    var rotuloEixo = porInstalacoes ? Math.round(t).toLocaleString("pt-BR") : (t>=1000? (t/1000).toFixed(1)+" GW": Math.round(t));
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: rotuloEixo }));
   }
 
   // Area empilhada com interpolacao monotona (ver caminhoMonotono) -- suaviza sem
@@ -940,10 +955,10 @@ function renderTendencia(){
       anexarHover(hit, function(cx, cy){
         crosshair.setAttribute("x1", xRef); crosshair.setAttribute("x2", xRef);
         crosshair.style.strokeOpacity = 1;
-        var linhas = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(periodoRef.valores_mw[s]) }; })
-          .filter(function(l, idx){ return periodoRef.valores_mw[idx] > 0.0005; })
-          .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
-        mostrarTooltip(cx, cy, periodoRef.periodo, linhas, fmtMW(periodoRef.total_mw));
+        var linhas = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valorNum: periodoRef.valores_mw[s], valor:fmtValor(periodoRef.valores_mw[s]) }; })
+          .filter(function(l, idx){ return periodoRef.valores_mw[idx] > (porInstalacoes ? 0.5 : 0.0005); })
+          .sort(function(a,b){ return b.valorNum - a.valorNum; });
+        mostrarTooltip(cx, cy, periodoRef.periodo, linhas, fmtValor(periodoRef.total_mw));
       });
       hit.addEventListener("pointerleave", function(){ crosshair.style.strokeOpacity = 0; });
       hit.addEventListener("blur", function(){ crosshair.style.strokeOpacity = 0; });
@@ -962,8 +977,8 @@ function renderTendencia(){
   periodos.slice().reverse().forEach(function(p){
     var tr = el("tr");
     tr.appendChild(el("td", { text:p.periodo }));
-    p.valores_mw.forEach(function(v){ tr.appendChild(el("td", { text: v.toFixed(1) })); });
-    tr.appendChild(el("td", { text: p.total_mw.toFixed(1) }));
+    p.valores_mw.forEach(function(v){ tr.appendChild(el("td", { text: porInstalacoes ? String(Math.round(v)) : v.toFixed(1) })); });
+    tr.appendChild(el("td", { text: porInstalacoes ? String(Math.round(p.total_mw)) : p.total_mw.toFixed(1) }));
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
@@ -985,7 +1000,10 @@ function renderMultiplos(){
   chartsMultiplos = [];
 
   var dados = DADOS.campos[estado.campo];
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
   var spm = dados.serie_por_marca;
+  var valoresPorMarca = porInstalacoes ? spm.valores_inst : spm.valores;
   var periodosTodos = spm.periodos_mensais;
   var indices = [];
   periodosTodos.forEach(function(p, i){
@@ -993,10 +1011,10 @@ function renderMultiplos(){
     if (ano >= estado.intervaloDe && ano <= estado.intervaloAte) indices.push(i);
   });
 
-  var totais = Object.keys(spm.valores).map(function(marca){
-    var valores = indices.map(function(i){ return spm.valores[marca][i]; });
+  var totais = Object.keys(valoresPorMarca).map(function(marca){
+    var valores = indices.map(function(i){ return valoresPorMarca[marca][i]; });
     return { marca: marca, valores: valores, soma: valores.reduce(function(a, b){ return a + b; }, 0) };
-  }).filter(function(m){ return m.soma > 0.05; }).sort(function(a, b){ return b.soma - a.soma; });
+  }).filter(function(m){ return m.soma > (porInstalacoes ? 0.5 : 0.05); }).sort(function(a, b){ return b.soma - a.soma; });
 
   var top = totais.slice(0, MULTIPLOS_TOP_N);
   var rotuloPeriodo = estado.intervaloDe === estado.intervaloAte ? "em " + estado.intervaloDe : "entre " + estado.intervaloDe + " e " + estado.intervaloAte;
@@ -1017,7 +1035,7 @@ function renderMultiplos(){
     var card = el("div", { class:"card-multiplo" });
     card.appendChild(el("div", { class:"card-multiplo-nome", text:item.marca }));
     var pico = Math.max.apply(null, item.valores.concat([0]));
-    var atual = ancoraNoRecorte ? (spm.valores[item.marca][idxAncora] || 0) : (item.valores[item.valores.length - 1] || 0);
+    var atual = ancoraNoRecorte ? (valoresPorMarca[item.marca][idxAncora] || 0) : (item.valores[item.valores.length - 1] || 0);
 
     var wrapGrafico = el("div", { class:"card-multiplo-grafico" });
     card.appendChild(wrapGrafico);
@@ -1034,7 +1052,7 @@ function renderMultiplos(){
         options: {
           responsive: true, maintainAspectRatio: false, animation: false,
           plugins: { legend: { display:false }, tooltip: { displayColors:false,
-            callbacks: { title: function(itens){ return itens[0].label; }, label: function(item){ return fmtMW(item.parsed.y); } } } },
+            callbacks: { title: function(itens){ return itens[0].label; }, label: function(item){ return fmtValor(item.parsed.y); } } } },
           scales: { x: { display:false }, y: { display:false, beginAtZero:true } },
           interaction: { mode:"index", intersect:false },
         },
@@ -1052,7 +1070,7 @@ function renderMultiplos(){
       wrapGrafico.appendChild(svg);
     }
 
-    card.appendChild(el("div", { class:"card-multiplo-rodape", text: "pico " + fmtMW(pico) + " · atual " + fmtMW(atual) }));
+    card.appendChild(el("div", { class:"card-multiplo-rodape", text: "pico " + fmtValor(pico) + " · atual " + fmtValor(atual) }));
     grade.appendChild(card);
   });
 }
@@ -1062,9 +1080,12 @@ var MAX_MARCAS_COMPARADAS = 8;
 function renderMarcaEspecifica(){
   var dados = DADOS.campos[estado.campo];
   var spm = dados.serie_por_marca;
-  var nomesMarcas = Object.keys(spm.valores).sort(function(a,b){
-    var somaB = spm.valores[b].reduce(function(x,y){return x+y;},0);
-    var somaA = spm.valores[a].reduce(function(x,y){return x+y;},0);
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
+  var valoresPorMarca = porInstalacoes ? spm.valores_inst : spm.valores;
+  var nomesMarcas = Object.keys(valoresPorMarca).sort(function(a,b){
+    var somaB = valoresPorMarca[b].reduce(function(x,y){return x+y;},0);
+    var somaA = valoresPorMarca[a].reduce(function(x,y){return x+y;},0);
     return somaB - somaA;
   });
   estado.marcasComparadas = (estado.marcasComparadas || []).filter(function(m){ return nomesMarcas.includes(m); });
@@ -1110,7 +1131,7 @@ function renderMarcaEspecifica(){
   });
 
   var seriesPorMarca = estado.marcasComparadas.map(function(nome, i){
-    var completa = serieUnicaPorGranularidade(spm.periodos_mensais, spm.valores[nome], estado.granularidade);
+    var completa = serieUnicaPorGranularidade(spm.periodos_mensais, valoresPorMarca[nome], estado.granularidade);
     var filtrada = completa.filter(function(p){
       var ano = p.periodo.slice(0,4);
       return ano >= estado.intervaloDe && ano <= estado.intervaloAte;
@@ -1123,12 +1144,12 @@ function renderMarcaEspecifica(){
   if (seriesPorMarca.length === 1){
     var s0 = seriesPorMarca[0];
     document.getElementById("legenda-marca-especifica-caption").textContent =
-      s0.nome + " instalou " + fmtMW(s0.total) + " em " + (estado.campo === "modulo" ? "módulos" : "inversores") +
-      " no período, com pico de " + fmtMW(s0.pico.valor) + " em " + s0.pico.periodo + ".";
+      s0.nome + " instalou " + fmtValor(s0.total) + " em " + (estado.campo === "modulo" ? "módulos" : "inversores") +
+      " no período, com pico de " + fmtValor(s0.pico.valor) + " em " + s0.pico.periodo + ".";
   } else {
     var porTotal = seriesPorMarca.slice().sort(function(a,b){ return b.total - a.total; });
     document.getElementById("legenda-marca-especifica-caption").textContent =
-      "Em ordem decrescente no período: " + porTotal.map(function(s){ return s.nome + " (" + fmtMW(s.total) + ")"; }).join(", ") + ".";
+      "Em ordem decrescente no período: " + porTotal.map(function(s){ return s.nome + " (" + fmtValor(s.total) + ")"; }).join(", ") + ".";
   }
 
   var svg = document.getElementById("svg-marca-especifica");
@@ -1144,7 +1165,8 @@ function renderMarcaEspecifica(){
   for (var t = 0; t <= maxEixo; t += passo){
     var y = MT + altura - (t / maxEixo) * altura;
     svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
-    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: t>=1000 ? (t/1000).toFixed(1)+" GW" : Math.round(t) }));
+    var rotuloEixoMe = porInstalacoes ? Math.round(t).toLocaleString("pt-BR") : (t>=1000 ? (t/1000).toFixed(1)+" GW" : Math.round(t));
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: rotuloEixoMe }));
   }
 
   var pontosPorSerie = seriesPorMarca.map(function(s){
@@ -1175,7 +1197,7 @@ function renderMarcaEspecifica(){
       }
       svg.appendChild(svgEl("circle", { cx:pt.x, cy:pt.y, r:3, fill:seriesPorMarca[s].cor, stroke:"var(--superficie)", "stroke-width":"2", "pointer-events":"none" }));
       if (!hitPorPeriodo[i]) hitPorPeriodo[i] = { x:pt.x, periodo:pt.periodo, linhas:[] };
-      hitPorPeriodo[i].linhas.push({ nome:seriesPorMarca[s].nome, cor:seriesPorMarca[s].cor, valor:fmtMW(pt.valor) });
+      hitPorPeriodo[i].linhas.push({ nome:seriesPorMarca[s].nome, cor:seriesPorMarca[s].cor, valor:fmtValor(pt.valor) });
     });
   });
   Object.keys(hitPorPeriodo).forEach(function(i){
@@ -1194,11 +1216,18 @@ function renderLeaderboard(){
 
   var ordenadaPP = linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
   var subiuMais = ordenadaPP[0], caiuMais = ordenadaPP[ordenadaPP.length-1];
+  // "Quem ganha/perde espaço" e por definicao participacao de mercado -- fica
+  // sempre em MW, mesmo com o toggle global em Instalacoes (mesmo principio da
+  // legenda de Tendencia e do indice de especializacao: participacao de mercado
+  // e medida em capacidade, nao em contagem).
+  var notaMetricaLb = estado.categoriaMetrica === "instalacoes"
+    ? "Participação de mercado é sempre medida em MW, independente da métrica escolhida no cabeçalho. "
+    : "";
   if (estado.intervaloDe === estado.intervaloAte){
-    document.getElementById("legenda-leaderboard-caption").textContent =
+    document.getElementById("legenda-leaderboard-caption").textContent = notaMetricaLb +
       "Selecione um intervalo (De ≠ Até) no cabeçalho para comparar crescimento entre dois pontos no tempo.";
   } else {
-  document.getElementById("legenda-leaderboard-caption").textContent =
+  document.getElementById("legenda-leaderboard-caption").textContent = notaMetricaLb +
     "De " + rotuloExtenso(dados, estado.intervaloDe) + " para " + rotuloExtenso(dados, estado.intervaloAte) + ": " +
     subiuMais.marca + " ganhou mais espaço (" + fmtPct(subiuMais.delta_pontos_percentuais) + " de participação), " +
     "enquanto " + caiuMais.marca + " foi quem mais perdeu (" + fmtPct(caiuMais.delta_pontos_percentuais) + ").";
@@ -1243,7 +1272,9 @@ function renderLeaderboard(){
           { nome:"Share " + dados.periodos.rotulos[estado.intervaloDe], valor: item.share_inicial_pct.toFixed(2) + "%" },
           { nome:"Share " + dados.periodos.rotulos[estado.intervaloAte], valor: item.share_final_pct.toFixed(2) + "%" },
           { nome:"MW " + dados.periodos.rotulos[estado.intervaloDe], valor: fmtMW(item.mw_inicial) },
-          { nome:"MW " + dados.periodos.rotulos[estado.intervaloAte], valor: fmtMW(item.mw_final) }
+          { nome:"MW " + dados.periodos.rotulos[estado.intervaloAte], valor: fmtMW(item.mw_final) },
+          { nome:"Instalações " + dados.periodos.rotulos[estado.intervaloDe], valor: item.inst_inicial.toLocaleString("pt-BR") },
+          { nome:"Instalações " + dados.periodos.rotulos[estado.intervaloAte], valor: item.inst_final.toLocaleString("pt-BR") }
         ];
         if (!item.entrante_novo && item.crescimento_relativo_pct !== null){
           linhasTip.push({ nome:"Crescimento relativo", valor: (item.crescimento_relativo_pct>=0?"+":"") + item.crescimento_relativo_pct.toFixed(0) + "%" });
@@ -1259,7 +1290,7 @@ function renderLeaderboard(){
   var tabela = document.getElementById("tabela-leaderboard");
   limpar(tabela);
   var thead = el("thead"); var trh = el("tr");
-  ["Marca","MW inicial","MW final","Share inicial","Share final","Δ p.p.","Cresc. relativo"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  ["Marca","MW inicial","MW final","Instalações inicial","Instalações final","Share inicial","Share final","Δ p.p.","Cresc. relativo"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
   linhasOrdenadas.forEach(function(l){
@@ -1267,6 +1298,8 @@ function renderLeaderboard(){
     tr.appendChild(el("td", {text:l.marca}));
     tr.appendChild(el("td", {text:fmtMW(l.mw_inicial)}));
     tr.appendChild(el("td", {text:fmtMW(l.mw_final)}));
+    tr.appendChild(el("td", {text:l.inst_inicial.toLocaleString("pt-BR")}));
+    tr.appendChild(el("td", {text:l.inst_final.toLocaleString("pt-BR")}));
     tr.appendChild(el("td", {text:l.share_inicial_pct.toFixed(2)+"%"}));
     tr.appendChild(el("td", {text:l.share_final_pct.toFixed(2)+"%"}));
     tr.appendChild(el("td", {text:fmtPct(l.delta_pontos_percentuais)}));
@@ -1276,9 +1309,9 @@ function renderLeaderboard(){
   tabela.appendChild(tbody);
 
   montarBotaoCsv("export-leaderboard", "leaderboard_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
-    ["Marca","MW inicial","MW final","Share inicial %","Share final %","Delta p.p.","Cresc. relativo %"],
+    ["Marca","MW inicial","MW final","Instalacoes inicial","Instalacoes final","Share inicial %","Share final %","Delta p.p.","Cresc. relativo %"],
     linhasOrdenadas.map(function(l){
-      return [l.marca, l.mw_inicial.toFixed(3), l.mw_final.toFixed(3), l.share_inicial_pct.toFixed(2),
+      return [l.marca, l.mw_inicial.toFixed(3), l.mw_final.toFixed(3), l.inst_inicial, l.inst_final, l.share_inicial_pct.toFixed(2),
         l.share_final_pct.toFixed(2), l.delta_pontos_percentuais.toFixed(2),
         l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null ? "" : l.crescimento_relativo_pct.toFixed(1))];
     }));
@@ -1295,38 +1328,44 @@ function calcularCategoria(dados, cfg){
   var categorias = dados[cfg.chaveOrdem] || [];
   var de = estado.intervaloDe, ate = estado.intervaloAte;
   var chaves = chavesNoIntervalo(de, ate);
-  var catMw = somarDictAninhado(dados.periodos[cfg.chaveMw], chaves);
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var catValores = somarDictAninhado(dados.periodos[porInstalacoes ? cfg.chaveInst : cfg.chaveMw], chaves);
   var perfil = somarPerfil(dados.periodos[cfg.chavePerfil], chaves);
   // Especialistas nao e somavel entre periodos (o payload guarda so o top-6 de
   // CADA periodo, nao a composicao completa -- uma marca de nicho relevante so
   // quando somada nao aparece em nenhum periodo isolado) -- por isso a tabela
-  // sempre reflete o periodo final do intervalo, nunca a soma.
-  var especialistas = dados.periodos[cfg.chaveEspecialistas][ate] || {};
+  // sempre reflete o periodo final do intervalo, nunca a soma. A metrica-base
+  // (MW ou instalacoes) segue o mesmo toggle global do grafico.
+  var chaveEsp = porInstalacoes ? cfg.chaveEspecialistasInst : cfg.chaveEspecialistas;
+  var especialistas = dados.periodos[chaveEsp][ate] || {};
 
   var linhas = categorias.map(function(c){
-    var porMarca = catMw[c] || {};
+    var porMarca = catValores[c] || {};
     var valores = marcas.map(function(m){ return porMarca[m] || 0; });
     var p = perfil[c] || [0, 0];
-    return { categoria: c, valores_mw: valores, total_mw: p[0], instalacoes: p[1] };
+    return { categoria: c, valores: valores, total_mw: p[0], instalacoes: p[1], total: porInstalacoes ? p[1] : p[0] };
   });
-  var totalGeral = linhas.reduce(function(a, l){ return a + l.total_mw; }, 0);
+  var totalGeral = linhas.reduce(function(a, l){ return a + l.total; }, 0);
 
   // "Outras X" e um balde residual (dezenas de entidades somadas), nao uma categoria
   // real -- excluido da escolha de "maior categoria" pra nao coroar o balde so
   // porque ele soma mais que qualquer entidade individual do top. Ainda aparece
   // normalmente no grafico e na tabela de especialistas, so nao no superlativo.
-  var comMw = linhas.filter(function(l){ return l.total_mw > 0 && l.categoria !== cfg.rotuloOutros; });
-  var maior = comMw.slice().sort(function(a,b){ return b.total_mw - a.total_mw; })[0];
+  var comValores = linhas.filter(function(l){ return l.total > 0 && l.categoria !== cfg.rotuloOutros; });
+  var maior = comValores.slice().sort(function(a,b){ return b.total - a.total; })[0];
   var texto = "";
   if (maior){
     var espMaior = (especialistas[maior.categoria] || [])[0];
-    texto = maior.categoria + " é " + cfg.artigo + " maior " + cfg.rotuloSingular + " " + emIntervalo(dados, de, ate) + ", com " +
-      fmtMW(maior.total_mw) + " (" + (totalGeral>0?maior.total_mw/totalGeral*100:0).toFixed(0) +
-      "% da potência em " + maior.instalacoes.toLocaleString("pt-BR") + " instalações)" +
+    var pct = (totalGeral>0?maior.total/totalGeral*100:0).toFixed(0);
+    var totalTxt = porInstalacoes
+      ? maior.total.toLocaleString("pt-BR") + " instalações (" + pct + "% do total, " + fmtMW(maior.total_mw) + ")"
+      : fmtMW(maior.total_mw) + " (" + pct + "% da potência em " + maior.instalacoes.toLocaleString("pt-BR") + " instalações)";
+    texto = maior.categoria + " é " + cfg.artigo + " maior " + cfg.rotuloSingular +
+      (porInstalacoes ? " em quantidade de instalações" : "") + " " + emIntervalo(dados, de, ate) + ", com " + totalTxt +
       (espMaior ? ", e " + espMaior[0] + " é a marca mais presente nessa " + cfg.rotuloSingular + " (" + espMaior[1].toFixed(1) + "%" +
         (espMaior[3] ? ", " + espMaior[3].toFixed(1) + "× a participação geral dela" : "") + ")" : "") + ".";
-    if (cfg.duasPontas && comMw.length > 1){
-      var topo = comMw[comMw.length-1];
+    if (cfg.duasPontas && comValores.length > 1){
+      var topo = comValores[comValores.length-1];
       var espTopo = (especialistas[topo.categoria] || [])[0];
       if (espTopo && espTopo[0] !== (espMaior && espMaior[0])){
         texto += " Já em " + topo.categoria + " quem lidera é " + espTopo[0] + " com " + espTopo[1].toFixed(1) + "%" +
@@ -1336,13 +1375,15 @@ function calcularCategoria(dados, cfg){
     }
   }
 
-  return { marcas:marcas, categorias:categorias, linhas:linhas, totalGeral:totalGeral, texto:texto, especialistas:especialistas };
+  return { marcas:marcas, categorias:categorias, linhas:linhas, totalGeral:totalGeral, texto:texto, especialistas:especialistas, porInstalacoes:porInstalacoes };
 }
 
 function renderCategoria(cfg){
   var dados = DADOS.campos[estado.campo];
   var calc = calcularCategoria(dados, cfg);
   var marcas = calc.marcas, categorias = calc.categorias, linhas = calc.linhas, especialistas = calc.especialistas;
+  var porInstalacoes = calc.porInstalacoes;
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
 
   renderLegenda(document.getElementById(cfg.idLegenda), marcas);
   document.getElementById(cfg.idCaption).textContent = calc.texto;
@@ -1355,14 +1396,14 @@ function renderCategoria(cfg){
   var H = MT + Math.max(n,1) * (alturaLinha+gapLinha) + MB;
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
   var largura = W - ML - MR;
-  var maxTotal = Math.max.apply(null, linhas.map(function(l){ return l.total_mw; }).concat([1]));
+  var maxTotal = Math.max.apply(null, linhas.map(function(l){ return l.total; }).concat([1]));
 
   linhas.forEach(function(l, i){
     var y = MT + i * (alturaLinha+gapLinha);
     svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+alturaLinha/2+3, "text-anchor":"end", text:l.categoria }));
     var xAcum = ML;
     marcas.forEach(function(nome, s){
-      var v = l.valores_mw ? l.valores_mw[s] : 0;
+      var v = l.valores ? l.valores[s] : 0;
       var larg = maxTotal>0 ? (v/maxTotal)*largura : 0;
       var gap = larg>3 ? 1 : 0;
       if (larg > gap*2){
@@ -1370,24 +1411,25 @@ function renderCategoria(cfg){
       }
       xAcum += larg;
     });
-    svg.appendChild(svgEl("text", { class:"barra-rotulo", x:xAcum+8, y:y+alturaLinha/2+3, "text-anchor":"start", text:fmtMW(l.total_mw) }));
+    svg.appendChild(svgEl("text", { class:"barra-rotulo", x:xAcum+8, y:y+alturaLinha/2+3, "text-anchor":"start", text:fmtValor(l.total) }));
 
     var hit = svgEl("rect", { class:"hitzone", x:ML, y:y, width:largura+MR-8, height:alturaLinha, tabindex:"0", role:"img", "aria-label": l.categoria });
     svg.appendChild(hit);
     (function(row){
       anexarHover(hit, function(mx,my){
-        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(row.valores_mw[s]) }; })
-          .filter(function(t, idx){ return row.valores_mw[idx] > 0.0005; })
+        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtValor(row.valores[s]) }; })
+          .filter(function(t, idx){ return row.valores[idx] > (porInstalacoes ? 0.5 : 0.0005); })
           .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
-        mostrarTooltip(mx, my, row.categoria + " · " + row.instalacoes.toLocaleString("pt-BR") + " instalações", tips, fmtMW(row.total_mw));
+        mostrarTooltip(mx, my, row.categoria + " · " + row.instalacoes.toLocaleString("pt-BR") + " instalações", tips, fmtValor(row.total));
       });
     })(l);
   });
 
   document.getElementById(cfg.idExplicacao).textContent =
-    "Índice de especialização = participação da marca na " + cfg.rotuloSingular + " ÷ participação no mercado total. " +
-    "Valores acima de 1 indicam concentração acima da média; 3×, por exemplo, indica presença três vezes maior que a " +
-    "média de mercado. A lista não se limita às marcas em destaque no gráfico — inclui especialistas de nicho." +
+    "Índice de especialização = participação da marca na " + cfg.rotuloSingular + " ÷ participação no mercado total, na mesma " +
+    "métrica escolhida acima (MW ou instalações). Valores acima de 1 indicam concentração acima da média; 3×, por exemplo, " +
+    "indica presença três vezes maior que a média de mercado. A lista não se limita às marcas em destaque no gráfico " +
+    "— inclui especialistas de nicho." +
     (estado.intervaloDe !== estado.intervaloAte
       ? " Esta tabela em especial reflete sempre o período final do intervalo (" + rotuloExtenso(DADOS.campos[estado.campo], estado.intervaloAte) + "), não a soma do intervalo inteiro."
       : "");
@@ -1421,7 +1463,7 @@ function renderCategoria(cfg){
 
 function renderFaixa(){
   renderCategoria({
-    chaveOrdem:"faixas_ordem", chaveMw:"faixa_mw", chavePerfil:"faixa_perfil", chaveEspecialistas:"faixa_especialistas",
+    chaveOrdem:"faixas_ordem", chaveMw:"faixa_mw", chaveInst:"faixa_inst", chavePerfil:"faixa_perfil", chaveEspecialistas:"faixa_especialistas", chaveEspecialistasInst:"faixa_especialistas_inst",
     idLegenda:"legenda-faixa", idCaption:"legenda-faixa-caption", idSvg:"svg-faixa",
     idExplicacao:"explicacao-especialistas-faixa", idTabela:"tabela-faixa", idExport:"export-faixa", rotuloColuna:"Faixa",
     artigo:"a", rotuloSingular:"faixa", rotuloPlural:"Faixas", duasPontas:true,
@@ -1430,7 +1472,7 @@ function renderFaixa(){
 
 function renderClasse(){
   renderCategoria({
-    chaveOrdem:"classes_ordem", chaveMw:"classe_mw", chavePerfil:"classe_perfil", chaveEspecialistas:"classe_especialistas",
+    chaveOrdem:"classes_ordem", chaveMw:"classe_mw", chaveInst:"classe_inst", chavePerfil:"classe_perfil", chaveEspecialistas:"classe_especialistas", chaveEspecialistasInst:"classe_especialistas_inst",
     idLegenda:"legenda-classe", idCaption:"legenda-classe-caption", idSvg:"svg-classe",
     idExplicacao:"explicacao-especialistas-classe", idTabela:"tabela-classe", idExport:"export-classe", rotuloColuna:"Classe",
     artigo:"a", rotuloSingular:"classe de consumo", rotuloPlural:"Classes", duasPontas:false,
@@ -1439,7 +1481,7 @@ function renderClasse(){
 
 function renderTarifa(){
   renderCategoria({
-    chaveOrdem:"tarifas_ordem", chaveMw:"tarifa_mw", chavePerfil:"tarifa_perfil", chaveEspecialistas:"tarifa_especialistas",
+    chaveOrdem:"tarifas_ordem", chaveMw:"tarifa_mw", chaveInst:"tarifa_inst", chavePerfil:"tarifa_perfil", chaveEspecialistas:"tarifa_especialistas", chaveEspecialistasInst:"tarifa_especialistas_inst",
     idLegenda:"legenda-tarifa", idCaption:"legenda-tarifa-caption", idSvg:"svg-tarifa",
     idExplicacao:"explicacao-especialistas-tarifa", idTabela:"tabela-tarifa", idExport:"export-tarifa", rotuloColuna:"Grupo tarifário",
     artigo:"o", rotuloSingular:"grupo tarifário", rotuloPlural:"Grupos tarifários", duasPontas:false,
@@ -1448,7 +1490,7 @@ function renderTarifa(){
 
 function renderDistribuidora(){
   renderCategoria({
-    chaveOrdem:"distribuidoras_ordem", chaveMw:"distribuidora_mw", chavePerfil:"distribuidora_perfil", chaveEspecialistas:"distribuidora_especialistas",
+    chaveOrdem:"distribuidoras_ordem", chaveMw:"distribuidora_mw", chaveInst:"distribuidora_inst", chavePerfil:"distribuidora_perfil", chaveEspecialistas:"distribuidora_especialistas", chaveEspecialistasInst:"distribuidora_especialistas_inst",
     idLegenda:"legenda-distribuidora", idCaption:"legenda-distribuidora-caption", idSvg:"svg-distribuidora",
     idExplicacao:"explicacao-especialistas-distribuidora", idTabela:"tabela-distribuidora", idExport:"export-distribuidora", rotuloColuna:"Distribuidora",
     artigo:"a", rotuloSingular:"distribuidora", rotuloPlural:"Distribuidoras", duasPontas:false,
@@ -1463,6 +1505,8 @@ function renderDistribuidora(){
 // nao ser top-10 do Brasil inteiro).
 function desenharBarrasGeo(svgId, linhas, marcas, opts){
   opts = opts || {};
+  var fmtValor = opts.fmtValor || fmtMW;
+  var limiar = opts.limiar != null ? opts.limiar : 0.0005;
   var svg = document.getElementById(svgId);
   limpar(svg);
   var n = linhas.length;
@@ -1486,7 +1530,7 @@ function desenharBarrasGeo(svgId, linhas, marcas, opts){
       }
       xAcum += larg;
     });
-    svg.appendChild(svgEl("text", { class:"barra-rotulo", x:xAcum+8, y:y+alturaLinha/2+3, "text-anchor":"start", text:fmtMW(l.total_mw) }));
+    svg.appendChild(svgEl("text", { class:"barra-rotulo", x:xAcum+8, y:y+alturaLinha/2+3, "text-anchor":"start", text:fmtValor(l.total_mw) }));
 
     var hit = svgEl("rect", {
       class:"hitzone", x:ML, y:y, width:largura+MR-8, height:alturaLinha, tabindex:"0", role:"img",
@@ -1497,10 +1541,10 @@ function desenharBarrasGeo(svgId, linhas, marcas, opts){
     (function(row){
       anexarHover(hit, function(mx,my){
         var valoresRow = row.valores_mw || [];
-        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valor:fmtMW(valoresRow[s] || 0) }; })
-          .filter(function(t, idx){ return (valoresRow[idx] || 0) > 0.0005; })
-          .sort(function(a,b){ return parseFloat(b.valor) - parseFloat(a.valor); });
-        mostrarTooltip(mx, my, row.nome + (row.sub ? " · " + row.sub : ""), tips, fmtMW(row.total_mw));
+        var tips = marcas.map(function(nome, s){ return { nome:nome, cor:CORES[s], valorNum: valoresRow[s] || 0, valor:fmtValor(valoresRow[s] || 0) }; })
+          .filter(function(t, idx){ return (valoresRow[idx] || 0) > limiar; })
+          .sort(function(a,b){ return b.valorNum - a.valorNum; });
+        mostrarTooltip(mx, my, row.nome + (row.sub ? " · " + row.sub : ""), tips, fmtValor(row.total_mw));
       });
       if (opts.onClick){
         hit.addEventListener("click", function(){ opts.onClick(row); });
@@ -1560,12 +1604,14 @@ function renderGeografia(){
 function renderGeoRegioes(dados, de, ate){
   var marcas = dados.marcas_cor;
   var chaves = chavesNoIntervalo(de, ate);
-  var ufMw = somarDictAninhado(dados.periodos.uf_mw, chaves);
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
+  var ufValores = somarDictAninhado(dados.periodos[porInstalacoes ? "uf_inst" : "uf_mw"], chaves);
   var linhas = regioesDisponiveis(dados).map(function(reg){
     var ufs = ufsDaRegiao(dados, reg);
     var valores = marcas.map(function(){ return 0; });
     ufs.forEach(function(uf){
-      var porMarca = ufMw[uf] || {};
+      var porMarca = ufValores[uf] || {};
       marcas.forEach(function(m, i){ valores[i] += porMarca[m] || 0; });
     });
     var total = valores.reduce(function(a,b){ return a+b; }, 0);
@@ -1575,7 +1621,7 @@ function renderGeoRegioes(dados, de, ate){
   renderLegenda(document.getElementById("geo-legend"), marcas);
   var lider = linhas[0];
   document.getElementById("geo-caption").textContent = lider
-    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emIntervalo(dados, de, ate) +
+    ? lider.nome + " lidera com " + fmtValor(lider.total_mw) + " " + emIntervalo(dados, de, ate) +
       " entre as 5 regiões do Brasil. Clique numa região para ver os estados."
     : "";
   document.getElementById("geo-tabela-detalhe").hidden = true;
@@ -1584,7 +1630,7 @@ function renderGeoRegioes(dados, de, ate){
   document.getElementById("wrap-geo").hidden = false;
   document.getElementById("geo-legend").hidden = false;
   desenharBarrasGeo("svg-geo", linhas, marcas, {
-    ML: 104,
+    ML: 104, fmtValor: fmtValor, limiar: porInstalacoes ? 0.5 : 0.0005,
     onClick: function(row){ estado.geoRegiaoAtual = row.nome; estado.geoNivel = "uf"; renderGeografia(); },
   });
 }
@@ -1592,9 +1638,11 @@ function renderGeoRegioes(dados, de, ate){
 function renderGeoUfs(dados, de, ate, regiao){
   var marcas = dados.marcas_cor;
   var chaves = chavesNoIntervalo(de, ate);
-  var ufMw = somarDictAninhado(dados.periodos.uf_mw, chaves);
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
+  var ufValores = somarDictAninhado(dados.periodos[porInstalacoes ? "uf_inst" : "uf_mw"], chaves);
   var linhas = ufsDaRegiao(dados, regiao).map(function(uf){
-    var porMarca = ufMw[uf] || {};
+    var porMarca = ufValores[uf] || {};
     var valores = marcas.map(function(m){ return porMarca[m] || 0; });
     var total = valores.reduce(function(a,b){ return a+b; }, 0);
     return { nome: uf, valores_mw: valores, total_mw: total };
@@ -1603,14 +1651,15 @@ function renderGeoUfs(dados, de, ate, regiao){
   renderLegenda(document.getElementById("geo-legend"), marcas);
   var lider = linhas[0];
   // uf_lideres do payload e precomputado so por periodo unico (marca real, sem o
-  // corte pro top-N do grafico) -- pra um intervalo com mais de um periodo, o lider
-  // e recalculado a partir do proprio uf_mw ja somado (liderPorValores), que usa o
-  // mesmo top-N do grafico em vez do universo completo de marcas.
+  // corte pro top-N do grafico) -- pra um intervalo com mais de um periodo, ou pro
+  // modo Instalacoes, o lider e recalculado a partir do proprio uf_mw/uf_inst ja
+  // somado (liderPorValores), que usa o mesmo top-N do grafico em vez do universo
+  // completo de marcas.
   var liderReal = lider
-    ? (de === ate ? ((dados.periodos.uf_lideres[ate] || {})[lider.nome] || null) : liderPorValores(marcas, lider.valores_mw))
+    ? ((de === ate && !porInstalacoes) ? ((dados.periodos.uf_lideres[ate] || {})[lider.nome] || null) : liderPorValores(marcas, lider.valores_mw))
     : null;
   document.getElementById("geo-caption").textContent = lider
-    ? lider.nome + " lidera com " + fmtMW(lider.total_mw) + " " + emIntervalo(dados, de, ate) + " entre os estados de " +
+    ? lider.nome + " lidera com " + fmtValor(lider.total_mw) + " " + emIntervalo(dados, de, ate) + " entre os estados de " +
       regiao + ", com " + (liderReal ? liderReal.nome : "—") + " como marca mais presente no estado. Clique em um estado para ver os municípios."
     : "Nenhum estado de " + regiao + " com instalação identificada " + emIntervalo(dados, de, ate) + ".";
   document.getElementById("geo-tabela-detalhe").hidden = true;
@@ -1619,7 +1668,7 @@ function renderGeoUfs(dados, de, ate, regiao){
   document.getElementById("wrap-geo").hidden = false;
   document.getElementById("geo-legend").hidden = false;
   desenharBarrasGeo("svg-geo", linhas, marcas, {
-    ML: 46,
+    ML: 46, fmtValor: fmtValor, limiar: porInstalacoes ? 0.5 : 0.0005,
     onClick: function(row){ estado.estadoGlobal = row.nome; estado.geoNivel = "municipio"; renderGeografia(); },
   });
 }
@@ -1639,14 +1688,16 @@ function renderGeoMunicipios(dados, de, ate, uf){
     var brutos = dados.periodos.municipios_mw[chave] || {};
     Object.keys(brutos).forEach(function(cod){
       var v = brutos[cod];
-      if (!somaPorMunicipio[cod]) somaPorMunicipio[cod] = { mw: 0, marcas: {} };
+      if (!somaPorMunicipio[cod]) somaPorMunicipio[cod] = { mw: 0, inst: 0, marcas: {} };
       somaPorMunicipio[cod].mw += v.mw;
+      somaPorMunicipio[cod].inst += v.inst || 0;
       (v.marcas_idx || []).forEach(function(par){
         somaPorMunicipio[cod].marcas[par[0]] = (somaPorMunicipio[cod].marcas[par[0]] || 0) + par[1];
       });
     });
   });
 
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var linhas = Object.keys(somaPorMunicipio)
     .filter(function(cod){ var inf = info[cod]; return inf && inf[1] === uf; })
     .map(function(cod){
@@ -1654,16 +1705,21 @@ function renderGeoMunicipios(dados, de, ate, uf){
       var ranking = Object.keys(s.marcas).map(function(idxStr){
         return { nome: marcasTodas[parseInt(idxStr, 10)], mw: s.marcas[idxStr] };
       }).sort(function(a,b){ return b.mw - a.mw; });
-      return { nome: inf[0], total_mw: s.mw, lideres: ranking.slice(0, 3).map(function(r){ return r.nome; }) };
+      return { nome: inf[0], total_mw: s.mw, inst: s.inst, lideres: ranking.slice(0, 3).map(function(r){ return r.nome; }) };
     })
-    .sort(function(a,b){ return b.total_mw - a.total_mw; });
+    .sort(function(a,b){ return porInstalacoes ? b.inst - a.inst : b.total_mw - a.total_mw; });
   var totalUf = linhas.reduce(function(a,m){ return a + m.total_mw; }, 0);
+  var totalUfInst = linhas.reduce(function(a,m){ return a + m.inst; }, 0);
 
   document.getElementById("geo-legend").hidden = true;
   document.getElementById("wrap-geo").hidden = true;
+  var pctPrincipal = porInstalacoes
+    ? (totalUfInst>0?linhas[0].inst/totalUfInst*100:0)
+    : (totalUf>0?linhas[0].total_mw/totalUf*100:0);
   document.getElementById("geo-caption").textContent = linhas.length
     ? linhas[0].nome + " lidera entre os " + linhas.length + " municípios de " + uf + " " + emIntervalo(dados, de, ate) + ", com " +
-      fmtMW(linhas[0].total_mw) + " (" + (totalUf>0?linhas[0].total_mw/totalUf*100:0).toFixed(1) + "% do estado), e " +
+      fmtMW(linhas[0].total_mw) + " em " + linhas[0].inst.toLocaleString("pt-BR") + " instalações (" +
+      pctPrincipal.toFixed(1) + "% do estado em " + (porInstalacoes ? "instalações" : "MW") + "), e " +
       (linhas[0].lideres[0] || "—") + " é a marca líder no município."
     : "Nenhum município de " + uf + " com instalação identificada " + emIntervalo(dados, de, ate) + ".";
 
@@ -1674,15 +1730,17 @@ function renderGeoMunicipios(dados, de, ate, uf){
   var tabela = document.getElementById("tabela-geo");
   limpar(tabela);
   var thead = el("thead"); var trh = el("tr");
-  ["#","Município","MW","% do estado","Líder 1","Líder 2","Líder 3"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  ["#","Município","MW","Instalações","% do estado","Líder 1","Líder 2","Líder 3"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
   linhas.forEach(function(m, i){
+    var pct = porInstalacoes ? (totalUfInst>0?m.inst/totalUfInst*100:0) : (totalUf>0?m.total_mw/totalUf*100:0);
     var tr = el("tr");
     tr.appendChild(el("td", {text:String(i+1)}));
     tr.appendChild(el("td", {text:m.nome}));
     tr.appendChild(el("td", {text:fmtMW(m.total_mw)}));
-    tr.appendChild(el("td", {text:(totalUf>0?m.total_mw/totalUf*100:0).toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:m.inst.toLocaleString("pt-BR")}));
+    tr.appendChild(el("td", {text:pct.toFixed(2)+"%"}));
     tr.appendChild(el("td", {text:m.lideres[0] || "—"}));
     tr.appendChild(el("td", {text:m.lideres[1] || "—"}));
     tr.appendChild(el("td", {text:m.lideres[2] || "—"}));
@@ -1691,9 +1749,10 @@ function renderGeoMunicipios(dados, de, ate, uf){
   tabela.appendChild(tbody);
 
   montarBotaoCsv("export-geo", "municipios_" + uf + "_" + estado.campo + "_" + de + "_" + ate + ".csv",
-    ["#","Municipio","MW","% do estado","Lider 1","Lider 2","Lider 3"],
+    ["#","Municipio","MW","Instalacoes","% do estado","Lider 1","Lider 2","Lider 3"],
     linhas.map(function(m, i){
-      return [i+1, m.nome, m.total_mw.toFixed(3), (totalUf>0?m.total_mw/totalUf*100:0).toFixed(2),
+      var pct = porInstalacoes ? (totalUfInst>0?m.inst/totalUfInst*100:0) : (totalUf>0?m.total_mw/totalUf*100:0);
+      return [i+1, m.nome, m.total_mw.toFixed(3), m.inst, pct.toFixed(2),
         m.lideres[0]||"", m.lideres[1]||"", m.lideres[2]||""];
     }));
 }
@@ -1708,29 +1767,37 @@ function renderRanking(){
     btn.setAttribute("aria-pressed", String(btn.textContent === (estado.topN === "todas" ? "Todas" : "Top " + estado.topN)));
   });
 
+  // Ordem da lista segue o toggle global "Métrica" (cabeçalho) -- Participação
+  // continua sempre em MW (participação de mercado e' medida em capacidade, nao
+  // em contagem, mesmo principio da legenda de Tendência e do índice de
+  // especialização).
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var chaves = chavesNoIntervalo(estado.intervaloDe, estado.intervaloAte);
   var marcasMw = somarDict(dados.periodos.marcas_mw, chaves);
+  var marcasInst = somarDict(dados.periodos.marcas_inst, chaves);
   var totalMw = somarEscalar(dados.periodos.totais_mw, chaves);
+  var totalInst = somarEscalar(dados.periodos.totais_inst, chaves);
   var linhas = Object.keys(marcasMw).map(function(marca){
-    var mw = marcasMw[marca];
-    return { marca: marca, mw: mw, share: totalMw > 0 ? mw/totalMw*100 : 0 };
-  }).sort(function(a,b){ return b.mw - a.mw; });
+    var mw = marcasMw[marca], inst = marcasInst[marca] || 0;
+    return { marca: marca, mw: mw, inst: inst, share: totalMw > 0 ? mw/totalMw*100 : 0 };
+  }).sort(function(a,b){ return porInstalacoes ? b.inst - a.inst : b.mw - a.mw; });
 
   var limite = estado.topN === "todas" ? linhas.length : parseInt(estado.topN, 10);
   var mostradas = linhas.slice(0, limite);
   var restoMw = linhas.slice(limite).reduce(function(acc,l){ return acc + l.mw; }, 0);
+  var restoInst = linhas.slice(limite).reduce(function(acc,l){ return acc + l.inst; }, 0);
   var naoInformadoMw = totalMw - linhas.reduce(function(acc,l){ return acc + l.mw; }, 0);
+  var naoInformadoInst = totalInst - linhas.reduce(function(acc,l){ return acc + l.inst; }, 0);
 
-  var top3Soma = linhas.slice(0, 3).reduce(function(a,l){ return a+l.share; }, 0);
+  var top3Soma = linhas.slice().sort(function(a,b){ return b.mw - a.mw; }).slice(0, 3).reduce(function(a,l){ return a+l.share; }, 0);
   document.getElementById("legenda-ranking-caption").textContent =
     linhas.length + " marcas de " + (estado.campo === "modulo" ? "módulo" : "inversor") + " disputam espaço " +
-    emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + "; as 3 maiores (" +
-    linhas.slice(0,3).map(function(l){ return l.marca; }).join(", ") + ") somam " + top3Soma.toFixed(0) + "% do mercado.";
+    emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + "; as 3 maiores em MW somam " + top3Soma.toFixed(0) + "% do mercado.";
 
   var tabela = document.getElementById("tabela-ranking");
   limpar(tabela);
   var thead = el("thead"); var trh = el("tr");
-  ["#","Marca","MW","Participação"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  ["#","Marca","MW","Instalações","Participação"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
   mostradas.forEach(function(l, i){
@@ -1738,6 +1805,7 @@ function renderRanking(){
     tr.appendChild(el("td", {text:String(i+1)}));
     tr.appendChild(el("td", {text:l.marca}));
     tr.appendChild(el("td", {text:fmtMW(l.mw)}));
+    tr.appendChild(el("td", {text:l.inst.toLocaleString("pt-BR")}));
     tr.appendChild(el("td", {text:l.share.toFixed(2)+"%"}));
     tbody.appendChild(tr);
   });
@@ -1751,6 +1819,7 @@ function renderRanking(){
     trResto.appendChild(tdMarcador);
     trResto.appendChild(el("td", {text:"Outras " + restantes.length + " marcas identificadas (clique para ver quais)"}));
     trResto.appendChild(el("td", {text:fmtMW(restoMw)}));
+    trResto.appendChild(el("td", {text:restoInst.toLocaleString("pt-BR")}));
     trResto.appendChild(el("td", {text:(totalMw>0?restoMw/totalMw*100:0).toFixed(2)+"%"}));
     var alternar = function(){ estado.restoExpandido = !estado.restoExpandido; renderRanking(); };
     trResto.addEventListener("click", alternar);
@@ -1763,6 +1832,7 @@ function renderRanking(){
         tr.appendChild(el("td", {text:String(limite+i+1)}));
         tr.appendChild(el("td", {text:l.marca}));
         tr.appendChild(el("td", {text:fmtMW(l.mw)}));
+        tr.appendChild(el("td", {text:l.inst.toLocaleString("pt-BR")}));
         tr.appendChild(el("td", {text:l.share.toFixed(2)+"%"}));
         tbody.appendChild(tr);
       });
@@ -1772,14 +1842,15 @@ function renderRanking(){
   trNaoInf.appendChild(el("td", {text:""}));
   trNaoInf.appendChild(el("td", {text:"Não identificado / não informado"}));
   trNaoInf.appendChild(el("td", {text:fmtMW(naoInformadoMw)}));
+  trNaoInf.appendChild(el("td", {text:naoInformadoInst.toLocaleString("pt-BR")}));
   trNaoInf.appendChild(el("td", {text:(totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)+"%"}));
   tbody.appendChild(trNaoInf);
   tabela.appendChild(tbody);
 
   montarBotaoCsv("export-ranking", "ranking_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
-    ["#","Marca","MW","Participacao %"],
-    linhas.map(function(l, i){ return [i+1, l.marca, l.mw.toFixed(3), l.share.toFixed(2)]; })
-      .concat([["", "Nao identificado / nao informado", naoInformadoMw.toFixed(3), (totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)]]));
+    ["#","Marca","MW","Instalacoes","Participacao %"],
+    linhas.map(function(l, i){ return [i+1, l.marca, l.mw.toFixed(3), l.inst, l.share.toFixed(2)]; })
+      .concat([["", "Nao identificado / nao informado", naoInformadoMw.toFixed(3), naoInformadoInst, (totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)]]));
 
   document.getElementById("explicacao-nao-identificado").textContent =
     "Amostra dos maiores registros de fabricante de " + (estado.campo === "modulo" ? "módulo" : "inversor") +
@@ -1887,16 +1958,16 @@ function montarPainelAjuda(){
 }
 montarPainelAjuda();
 
-// Resumo de uma tela so, pra imprimir/copiar e mandar pra fora do dashboard (ex.:
-// email) sem precisar descrever os numeros na mao. Reflete o filtro corrente (campo,
-// intervalo, estado) no momento em que é aberto -- não atualiza sozinho se o filtro
-// mudar com o resumo já aberto, precisa fechar e abrir de novo.
+// Resumo de uma tela so, pra copiar e mandar pra fora do dashboard (ex.: email) sem
+// precisar descrever os numeros na mao. Reflete o filtro corrente (campo, intervalo)
+// -- atualiza sozinho se o filtro mudar com o resumo aberto (ver atualizarRelatorioSeAberto).
 function gerarConteudoRelatorio(){
   var dados = DADOS.campos[estado.campo];
   var de = estado.intervaloDe, ate = estado.intervaloAte;
   var chaves = chavesNoIntervalo(de, ate);
   var marcasMw = somarDict(dados.periodos.marcas_mw, chaves);
   var totalMw = somarEscalar(dados.periodos.totais_mw, chaves);
+  var totalInst = somarEscalar(dados.periodos.totais_inst, chaves);
   var ranking = Object.keys(marcasMw).map(function(m){ return { marca:m, mw:marcasMw[m] }; }).sort(function(a,b){ return b.mw - a.mw; });
   var top3 = ranking.slice(0, 3);
   var top3Pct = totalMw > 0 ? top3.reduce(function(a,l){ return a + l.mw; }, 0) / totalMw * 100 : 0;
@@ -1917,7 +1988,7 @@ function gerarConteudoRelatorio(){
       itens.push({ rotulo:"Maior queda", texto: caiu.marca + " (" + fmtPct(caiu.delta_pontos_percentuais) + ")" });
     }
   }
-  itens.push({ rotulo:"Total instalado", texto: fmtMW(totalMw) + " no período" });
+  itens.push({ rotulo:"Total instalado", texto: fmtMW(totalMw) + " em " + totalInst.toLocaleString("pt-BR") + " instalações no período" });
   itens.push({ rotulo:"Identificação", texto: identificadoPct.toFixed(1) + "% do volume com marca identificada com segurança" });
 
   var lead = ranking[0]
@@ -2037,6 +2108,24 @@ montarBotaoTopo();
 montarFiltro(document.getElementById("filtro-campo"), [
   { label:"Módulo", valor:"modulo" }, { label:"Inversor", valor:"inversor" }
 ], estado.campo, function(v){ estado.campo = v; sync(); });
+
+// Toggle proprio (nao usa syncPressed/mapa, que ja tem "mw" reservado pro metrica
+// do Leaderboard com rotulo diferente -- "MW absoluto" em vez de "MW") -- afeta
+// Tendencia, Cada marca individualmente e as barras empilhadas de Faixa/Classe/
+// Tarifa/Distribuidora. NAO afeta a tabela de especialistas dessas quatro (indice
+// de especializacao continua sempre em MW, ver calcularCategoria) nem o Ranking/
+// Leaderboard (que tem seu proprio seletor "Ordenar por" independente).
+function montarFiltroCategoriaMetrica(){
+  montarFiltro(document.getElementById("filtro-categoria-metrica"), [
+    { label:"MW", valor:"mw" }, { label:"Instalações", valor:"instalacoes" }
+  ], estado.categoriaMetrica, function(v){
+    estado.categoriaMetrica = v;
+    montarFiltroCategoriaMetrica();
+    renderTendencia(); renderMarcaEspecifica(); renderRanking(); renderLeaderboard(); renderGeografia();
+    renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora();
+  });
+}
+montarFiltroCategoriaMetrica();
 
 montarFiltro(document.getElementById("filtro-granularidade"), [
   { label:"Mensal", valor:"mensal" }, { label:"Trimestral", valor:"trimestral" }, { label:"Anual", valor:"anual" }

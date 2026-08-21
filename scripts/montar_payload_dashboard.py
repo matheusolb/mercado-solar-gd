@@ -108,29 +108,37 @@ def serie_temporal(df: pd.DataFrame, coluna_periodo: str, marcas_grafico: list[s
     marcas_fold = marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO]
     tmp = df.copy()
     tmp["_marca_grafico"] = lm.marca_para_grafico(tmp["marca"], marcas_grafico[:TOP_N_GRAFICO_COR])
-    agrupado = tmp.groupby([coluna_periodo, "_marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0)
-    agrupado = agrupado.reindex(columns=marcas_fold, fill_value=0.0)
+    agrupado_mw = tmp.groupby([coluna_periodo, "_marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0)
+    agrupado_mw = agrupado_mw.reindex(columns=marcas_fold, fill_value=0.0)
+    agrupado_inst = tmp.groupby([coluna_periodo, "_marca_grafico"])["qtd_instalacoes"].sum().unstack(fill_value=0)
+    agrupado_inst = agrupado_inst.reindex(index=agrupado_mw.index, columns=marcas_fold, fill_value=0)
     resultado = []
-    for periodo, linha in agrupado.sort_index().iterrows():
-        valores_mw = [round(v / 1000, 3) for v in linha.values]
+    for periodo in agrupado_mw.sort_index().index:
+        linha_mw, linha_inst = agrupado_mw.loc[periodo], agrupado_inst.loc[periodo]
         resultado.append({
             "periodo": periodo,
-            "total_mw": round(float(linha.sum()) / 1000, 3),
-            "valores_mw": valores_mw,
+            "total_mw": round(float(linha_mw.sum()) / 1000, 3),
+            "total_inst": int(linha_inst.sum()),
+            "valores_mw": [round(v / 1000, 3) for v in linha_mw.values],
+            "valores_inst": [int(v) for v in linha_inst.values],
         })
     return resultado
 
 
 def serie_mensal_todas_marcas(df: pd.DataFrame) -> dict:
-    """Serie mensal em MW para TODAS as marcas reais (nao so o top-15 do grafico
-    principal) -- alimenta o filtro "ver uma marca especifica" do dashboard, pra
-    poder plotar a evolucao de qualquer marca, mesmo uma pequena que nunca entra
-    no top-8/15 (ex: Livoltek)."""
+    """Serie mensal em MW e em instalacoes para TODAS as marcas reais (nao so o
+    top-15 do grafico principal) -- alimenta o filtro "ver uma marca especifica" e
+    o grid "Cada marca individualmente", pra poder plotar a evolucao de qualquer
+    marca (mesmo uma pequena que nunca entra no top-8/15, ex: Livoltek) nas duas
+    metricas."""
     reais = df[~df["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
-    pivot = reais.groupby(["ano_mes", "marca"])["soma_kw"].sum().unstack(fill_value=0.0).sort_index()
+    pivot_mw = reais.groupby(["ano_mes", "marca"])["soma_kw"].sum().unstack(fill_value=0.0).sort_index()
+    pivot_inst = reais.groupby(["ano_mes", "marca"])["qtd_instalacoes"].sum().unstack(fill_value=0)
+    pivot_inst = pivot_inst.reindex(index=pivot_mw.index, columns=pivot_mw.columns, fill_value=0)
     return {
-        "periodos_mensais": pivot.index.tolist(),
-        "valores": {marca: [round(v / 1000, 3) for v in pivot[marca].values] for marca in pivot.columns},
+        "periodos_mensais": pivot_mw.index.tolist(),
+        "valores": {marca: [round(v / 1000, 3) for v in pivot_mw[marca].values] for marca in pivot_mw.columns},
+        "valores_inst": {marca: [int(v) for v in pivot_inst[marca].values] for marca in pivot_mw.columns},
     }
 
 
@@ -165,6 +173,16 @@ def totais_por_marca_mw(df: pd.DataFrame, meses: list[str]) -> dict[str, float]:
     return {m: round(v / 1000, 3) for m, v in por_marca.items()}
 
 
+def totais_por_marca_instalacoes(df: pd.DataFrame, meses: list[str]) -> dict[str, int]:
+    """Mesma logica de totais_por_marca_mw, mas contagem de instalacoes -- serve
+    pra distinguir marca com poucas instalacoes grandes de marca com muitas
+    pequenas, coisa que MW sozinho nao mostra."""
+    subset = df[df["ano_mes"].isin(meses)]
+    reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
+    por_marca = reais.groupby("marca")["qtd_instalacoes"].sum()
+    return {m: int(v) for m, v in por_marca.items()}
+
+
 def municipios_info(df: pd.DataFrame) -> dict[str, list]:
     """Nome + UF de cada municipio, uma vez so (nao muda por periodo) -- em vez
     de repetir esses dois campos em toda entrada de todo periodo (eram 2 dos 5
@@ -185,16 +203,17 @@ def totais_municipio_mw(df: pd.DataFrame, meses: list[str], marcas_indice: dict[
     cliente somar quantos periodos quiser e ainda calcular, com exatidao, quem
     lidera cada municipio no intervalo somado -- nao so um retrato de um ano."""
     subset = df[df["ano_mes"].isin(meses)]
-    total_por_municipio = subset.groupby("CodMunicipioIbge")["soma_kw"].sum()
+    total_por_municipio = subset.groupby("CodMunicipioIbge").agg(
+        kw=("soma_kw", "sum"), inst=("qtd_instalacoes", "sum"))
     reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
     marca_por_municipio = reais.groupby(["CodMunicipioIbge", "marca"])["soma_kw"].sum()
 
     resultado: dict[str, dict] = {}
-    for cod, kw in total_por_municipio.items():
-        if kw <= 0:
+    for cod, linha in total_por_municipio.iterrows():
+        if linha["kw"] <= 0:
             continue
         chave = str(int(cod)) if pd.notna(cod) else "ND"
-        resultado[chave] = {"mw": round(kw / 1000, 3), "marcas_idx": []}
+        resultado[chave] = {"mw": round(linha["kw"] / 1000, 3), "inst": int(linha["inst"]), "marcas_idx": []}
 
     for (cod, marca), kw in marca_por_municipio.items():
         if kw <= 0:
@@ -222,6 +241,20 @@ def totais_categoria_mw(df: pd.DataFrame, meses: list[str], marcas_grafico: list
             for cat, linha in agrupado.iterrows()}
 
 
+def totais_categoria_instalacoes(df: pd.DataFrame, meses: list[str], marcas_grafico: list[str],
+                                  coluna: str, categorias: list[str]) -> dict[str, dict[str, int]]:
+    """Mesma composicao de totais_categoria_mw, em quantidade de instalacoes em vez
+    de MW -- alimenta o toggle MW/Instalacoes do grafico empilhado de
+    Faixa/Classe/Tarifa/Distribuidora."""
+    marcas_fold = marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO]
+    subset = df[df["ano_mes"].isin(meses)].copy()
+    subset["_marca_grafico"] = lm.marca_para_grafico(subset["marca"], marcas_grafico[:TOP_N_GRAFICO_COR])
+    agrupado = subset.groupby([coluna, "_marca_grafico"], observed=True)["qtd_instalacoes"].sum().unstack(fill_value=0)
+    agrupado = agrupado.reindex(index=categorias, columns=marcas_fold, fill_value=0)
+    return {str(cat): {m: int(v) for m, v in linha.items()}
+            for cat, linha in agrupado.iterrows()}
+
+
 def perfil_categoria(df: pd.DataFrame, meses: list[str], coluna: str, categorias: list[str]) -> dict[str, list]:
     """Peso de cada categoria: [mw, qtd_instalacoes]. Os dois importam e contam
     historias diferentes -- uma categoria pode ser a maioria das instalacoes e so uma
@@ -234,29 +267,30 @@ def perfil_categoria(df: pd.DataFrame, meses: list[str], coluna: str, categorias
 
 
 def especialistas_por_categoria(df: pd.DataFrame, meses: list[str], coluna: str, categorias: list[str],
-                                 n: int = 6) -> dict[str, list]:
+                                 n: int = 6, coluna_valor: str = "soma_kw") -> dict[str, list]:
     """Top marcas de cada categoria com indice de especializacao (share na categoria /
     share geral). Indice > 1 significa que a marca e mais forte naquela categoria do
     que no mercado como um todo -- e o que responde "quais marcas se sobressaem em
     cada [faixa/classe/tarifa/distribuidora]". NAO restringe ao top-8 global de
     proposito: especialistas de nicho so aparecem sem essa restricao, exatamente como
-    a marca lider por municipio.
+    a marca lider por municipio. coluna_valor troca a metrica-base (soma_kw ou
+    qtd_instalacoes) -- alimenta o toggle MW/Instalacoes, chamado uma vez pra cada.
     Cada item: [marca, share_na_categoria_pct, share_geral_pct, indice]."""
     subset = df[df["ano_mes"].isin(meses)]
-    total_geral = subset["soma_kw"].sum()
+    total_geral = subset[coluna_valor].sum()
     reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
     if total_geral <= 0 or reais.empty:
         return {str(c): [] for c in categorias}
-    share_geral = reais.groupby("marca")["soma_kw"].sum() / total_geral * 100
+    share_geral = reais.groupby("marca")[coluna_valor].sum() / total_geral * 100
 
     resultado: dict[str, list] = {}
     for cat in categorias:
-        total_cat = subset[subset[coluna] == cat]["soma_kw"].sum()
+        total_cat = subset[subset[coluna] == cat][coluna_valor].sum()
         na_cat = reais[reais[coluna] == cat]
         if total_cat <= 0 or na_cat.empty:
             resultado[str(cat)] = []
             continue
-        share_cat = (na_cat.groupby("marca")["soma_kw"].sum() / total_cat * 100).sort_values(ascending=False)
+        share_cat = (na_cat.groupby("marca")[coluna_valor].sum() / total_cat * 100).sort_values(ascending=False)
         itens = []
         for marca, sc in share_cat.head(n).items():
             sg = float(share_geral.get(marca, 0.0))
@@ -300,6 +334,17 @@ def totais_uf_mw(df: pd.DataFrame, meses: list[str], marcas_grafico: list[str]) 
     agrupado = subset.groupby(["SigUF", "_marca_grafico"])["soma_kw"].sum().unstack(fill_value=0.0)
     agrupado = agrupado.reindex(columns=marcas_fold, fill_value=0.0)
     return {uf: {m: round(v / 1000, 3) for m, v in linha.items()} for uf, linha in agrupado.iterrows()}
+
+
+def totais_uf_instalacoes(df: pd.DataFrame, meses: list[str], marcas_grafico: list[str]) -> dict[str, dict[str, int]]:
+    """Mesma composicao de totais_uf_mw, em quantidade de instalacoes -- alimenta
+    o toggle MW/Instalacoes do corte por estado/regiao."""
+    marcas_fold = marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO]
+    subset = df[df["ano_mes"].isin(meses)].copy()
+    subset["_marca_grafico"] = lm.marca_para_grafico(subset["marca"], marcas_grafico[:TOP_N_GRAFICO_COR])
+    agrupado = subset.groupby(["SigUF", "_marca_grafico"])["qtd_instalacoes"].sum().unstack(fill_value=0)
+    agrupado = agrupado.reindex(columns=marcas_fold, fill_value=0)
+    return {uf: {m: int(v) for m, v in linha.items()} for uf, linha in agrupado.iterrows()}
 
 
 def montar_payload_campo(campo: str) -> dict:
@@ -346,33 +391,45 @@ def montar_payload_campo(campo: str) -> dict:
     df["_distribuidora_fold"] = fold_categoria(df["distribuidora"], top_distribuidoras, ROTULO_OUTRAS_DIST)
     distribuidoras_ordem = top_distribuidoras + [ROTULO_OUTRAS_DIST]
 
-    totais_mw, marcas_mw, uf_mw, uf_lideres_por_periodo, municipios_por_periodo = {}, {}, {}, {}, {}
-    faixa_mw, faixa_perfil, faixa_especialistas = {}, {}, {}
-    classe_mw, classe_perfil, classe_especialistas = {}, {}, {}
-    tarifa_mw, tarifa_perfil, tarifa_especialistas = {}, {}, {}
-    dist_mw, dist_perfil, dist_especialistas = {}, {}, {}
+    totais_mw, totais_inst, marcas_mw, marcas_inst = {}, {}, {}, {}
+    uf_mw, uf_inst, uf_lideres_por_periodo, municipios_por_periodo = {}, {}, {}, {}
+    faixa_mw, faixa_inst, faixa_perfil, faixa_especialistas, faixa_especialistas_inst = {}, {}, {}, {}, {}
+    classe_mw, classe_inst, classe_perfil, classe_especialistas, classe_especialistas_inst = {}, {}, {}, {}, {}
+    tarifa_mw, tarifa_inst, tarifa_perfil, tarifa_especialistas, tarifa_especialistas_inst = {}, {}, {}, {}, {}
+    dist_mw, dist_inst, dist_perfil, dist_especialistas, dist_especialistas_inst = {}, {}, {}, {}, {}
     for chave, meses in periodos_meses.items():
         totais_mw[chave] = round(df[df["ano_mes"].isin(meses)]["soma_kw"].sum() / 1000, 3)
+        totais_inst[chave] = int(df[df["ano_mes"].isin(meses)]["qtd_instalacoes"].sum())
         marcas_mw[chave] = totais_por_marca_mw(df, meses)
+        marcas_inst[chave] = totais_por_marca_instalacoes(df, meses)
         uf_mw[chave] = totais_uf_mw(df, meses, marcas_grafico)
+        uf_inst[chave] = totais_uf_instalacoes(df, meses, marcas_grafico)
         uf_lideres_por_periodo[chave] = lideres_uf(df, meses)
         municipios_por_periodo[chave] = totais_municipio_mw(df, meses, municipios_marcas_indice)
 
         faixa_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "faixa_potencia", faixas_ordem)
+        faixa_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "faixa_potencia", faixas_ordem)
         faixa_perfil[chave] = perfil_categoria(df, meses, "faixa_potencia", faixas_ordem)
         faixa_especialistas[chave] = especialistas_por_categoria(df, meses, "faixa_potencia", faixas_ordem)
+        faixa_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "faixa_potencia", faixas_ordem, coluna_valor="qtd_instalacoes")
 
         classe_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "classe_consumo", classes_ordem)
+        classe_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "classe_consumo", classes_ordem)
         classe_perfil[chave] = perfil_categoria(df, meses, "classe_consumo", classes_ordem)
         classe_especialistas[chave] = especialistas_por_categoria(df, meses, "classe_consumo", classes_ordem)
+        classe_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "classe_consumo", classes_ordem, coluna_valor="qtd_instalacoes")
 
         tarifa_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "grupo_tarifario", tarifas_ordem)
+        tarifa_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "grupo_tarifario", tarifas_ordem)
         tarifa_perfil[chave] = perfil_categoria(df, meses, "grupo_tarifario", tarifas_ordem)
         tarifa_especialistas[chave] = especialistas_por_categoria(df, meses, "grupo_tarifario", tarifas_ordem)
+        tarifa_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "grupo_tarifario", tarifas_ordem, coluna_valor="qtd_instalacoes")
 
         dist_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "_distribuidora_fold", distribuidoras_ordem)
+        dist_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "_distribuidora_fold", distribuidoras_ordem)
         dist_perfil[chave] = perfil_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem)
         dist_especialistas[chave] = especialistas_por_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem)
+        dist_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem, coluna_valor="qtd_instalacoes")
 
     return {
         "marcas": marcas_grafico,
@@ -395,22 +452,33 @@ def montar_payload_campo(campo: str) -> dict:
             "rotulos": rotulos,
             "extremos": extremos,
             "totais_mw": totais_mw,
+            "totais_inst": totais_inst,
             "marcas_mw": marcas_mw,
+            "marcas_inst": marcas_inst,
             "uf_mw": uf_mw,
+            "uf_inst": uf_inst,
             "uf_lideres": uf_lideres_por_periodo,
             "municipios_mw": municipios_por_periodo,
             "faixa_mw": faixa_mw,
+            "faixa_inst": faixa_inst,
             "faixa_perfil": faixa_perfil,
             "faixa_especialistas": faixa_especialistas,
+            "faixa_especialistas_inst": faixa_especialistas_inst,
             "classe_mw": classe_mw,
+            "classe_inst": classe_inst,
             "classe_perfil": classe_perfil,
             "classe_especialistas": classe_especialistas,
+            "classe_especialistas_inst": classe_especialistas_inst,
             "tarifa_mw": tarifa_mw,
+            "tarifa_inst": tarifa_inst,
             "tarifa_perfil": tarifa_perfil,
             "tarifa_especialistas": tarifa_especialistas,
+            "tarifa_especialistas_inst": tarifa_especialistas_inst,
             "distribuidora_mw": dist_mw,
+            "distribuidora_inst": dist_inst,
             "distribuidora_perfil": dist_perfil,
             "distribuidora_especialistas": dist_especialistas,
+            "distribuidora_especialistas_inst": dist_especialistas_inst,
         },
     }
 
