@@ -211,6 +211,21 @@
   .dash-foot{font-size:11.5px; color:var(--tinta-muda); line-height:1.6; border-top:1px solid var(--grade); padding-top:14px;}
   .dash-foot p{margin:0 0 4px;}
 
+  .tabela-export{display:flex; justify-content:flex-end; margin:0 0 8px;}
+  .botao-csv{
+    appearance:none; border:1px solid var(--borda); background:var(--superficie); color:var(--tinta-2);
+    font:inherit; font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:7px; cursor:pointer;
+  }
+  .botao-csv:hover{background:var(--acento-fraco); color:var(--tinta);}
+  .botao-csv:focus-visible{outline:2px solid var(--acento); outline-offset:1px;}
+
+  .relatorio-acoes{display:flex; gap:8px; margin-bottom:14px;}
+  .relatorio h2{font-size:19px; margin-bottom:2px;}
+  .relatorio .rel-meta{font-size:12px; color:var(--tinta-muda); margin:0 0 14px;}
+  .relatorio .rel-lead{font-size:14.5px; line-height:1.6; margin:0 0 14px;}
+  .relatorio ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px; font-size:13.5px; color:var(--tinta-2);}
+  .relatorio ul li b{color:var(--tinta);}
+
   @media (max-width:640px){
     .dash-head h1{font-size:21px;}
     .card{padding:16px 14px 18px;}
@@ -241,6 +256,17 @@
     </div>
   </div>
   <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil.</p>
+
+  <div class="filtros">
+    <button type="button" class="botao-ajuda" id="botao-gerar-relatorio" aria-expanded="false">📄 Gerar resumo</button>
+  </div>
+
+  <section class="card relatorio" id="relatorio" hidden>
+    <div class="relatorio-acoes">
+      <button type="button" class="botao-ajuda" id="botao-copiar-relatorio">Copiar texto</button>
+    </div>
+    <div id="relatorio-conteudo"></div>
+  </section>
 
   <section class="card">
     <div class="card-head">
@@ -294,6 +320,7 @@
       <svg id="svg-leaderboard" viewBox="0 0 1000 440" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
     <details class="table-toggle"><summary>Ver tabela completa</summary>
+      <div class="tabela-export" id="export-leaderboard"></div>
       <div class="table-scroll"><table class="dados" id="tabela-leaderboard"></table></div>
     </details>
   </section>
@@ -306,6 +333,7 @@
     <div class="filtros">
       <div class="filtro-grupo" id="filtro-top-n"></div>
     </div>
+    <div class="tabela-export" id="export-ranking"></div>
     <div class="table-scroll"><table class="dados" id="tabela-ranking"></table></div>
     <details class="table-toggle"><summary>O que tem dentro de "Não identificado"?</summary>
       <p class="card-caption" id="explicacao-nao-identificado" style="margin-top:8px;"></p>
@@ -324,6 +352,7 @@
     </div>
     <details class="table-toggle" open><summary>Quem se sobressai em cada faixa (índice de especialização)</summary>
       <p class="card-caption" id="explicacao-especialistas-faixa" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-faixa"></div>
       <div class="table-scroll"><table class="dados" id="tabela-faixa"></table></div>
     </details>
   </section>
@@ -339,6 +368,7 @@
     </div>
     <details class="table-toggle"><summary>Quem se sobressai em cada classe (índice de especialização)</summary>
       <p class="card-caption" id="explicacao-especialistas-classe" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-classe"></div>
       <div class="table-scroll"><table class="dados" id="tabela-classe"></table></div>
     </details>
   </section>
@@ -354,6 +384,7 @@
     </div>
     <details class="table-toggle"><summary>Quem se sobressai em cada grupo tarifário (índice de especialização)</summary>
       <p class="card-caption" id="explicacao-especialistas-tarifa" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-tarifa"></div>
       <div class="table-scroll"><table class="dados" id="tabela-tarifa"></table></div>
     </details>
   </section>
@@ -369,6 +400,7 @@
     </div>
     <details class="table-toggle"><summary>Quem se sobressai em cada distribuidora (índice de especialização)</summary>
       <p class="card-caption" id="explicacao-especialistas-distribuidora" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-distribuidora"></div>
       <div class="table-scroll"><table class="dados" id="tabela-distribuidora"></table></div>
     </details>
   </section>
@@ -384,6 +416,7 @@
       <svg id="svg-geo" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
     <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary id="geo-tabela-detalhe-titulo">Ver tabela completa</summary>
+      <div class="tabela-export" id="export-geo"></div>
       <div class="table-scroll"><table class="dados" id="tabela-geo"></table></div>
     </details>
   </section>
@@ -430,6 +463,36 @@ function fmtMW(v){
   return s;
 }
 function fmtPct(v, casas){ return (v > 0 ? "+" : "") + v.toFixed(casas === undefined ? 1 : casas) + " p.p.";}
+
+// Exportacao de tabelas em CSV -- ";" como separador (nao ",") porque o Excel
+// em pt-BR usa virgula como separador decimal e quebraria a leitura das colunas
+// com "," como delimitador. BOM UTF-8 na frente evita acento errado ao abrir.
+function baixarCsv(nomeArquivo, cabecalhos, linhas){
+  function celula(v){
+    var s = v === null || v === undefined ? "" : String(v);
+    // numero decimal (ex: "4690.300") -> "4690,300", pro Excel pt-BR reconhecer
+    // como numero de verdade (com "." vira texto, quebra ordenacao/soma na planilha).
+    if (/^-?\d+\.\d+$/.test(s)) s = s.replace(".", ",");
+    return /["; \n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  var csv = [cabecalhos].concat(linhas).map(function(linha){
+    return linha.map(celula).join(";");
+  }).join("\r\n");
+  var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = nomeArquivo;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function montarBotaoCsv(containerId, nomeArquivo, cabecalhos, linhas){
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  limpar(container);
+  var btn = el("button", { type:"button", class:"botao-csv", text:"⬇ Baixar CSV" });
+  btn.addEventListener("click", function(){ baixarCsv(nomeArquivo, cabecalhos, linhas); });
+  container.appendChild(btn);
+}
 
 function agregarPorChave(periodos, chaveFn){
   var grupos = {}, ordem = [];
@@ -636,6 +699,7 @@ function montarFiltrosGlobais(){
   function rerenderTudoQueDependeDoIntervalo(){
     renderTendencia(); renderMarcaEspecifica(); renderLeaderboard();
     renderRanking(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
+    atualizarRelatorioSeAberto();
   }
   montarSeletorAno(document.getElementById("filtro-intervalo-de"), dados, estado.intervaloDe, function(v){
     estado.intervaloDe = v; if (estado.intervaloDe > estado.intervaloAte) estado.intervaloAte = v;
@@ -1191,13 +1255,14 @@ function renderLeaderboard(){
     })(l);
   });
 
+  var linhasOrdenadas = linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
   var tabela = document.getElementById("tabela-leaderboard");
   limpar(tabela);
   var thead = el("thead"); var trh = el("tr");
   ["Marca","MW inicial","MW final","Share inicial","Share final","Δ p.p.","Cresc. relativo"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
-  linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; }).forEach(function(l){
+  linhasOrdenadas.forEach(function(l){
     var tr = el("tr");
     tr.appendChild(el("td", {text:l.marca}));
     tr.appendChild(el("td", {text:fmtMW(l.mw_inicial)}));
@@ -1209,6 +1274,14 @@ function renderLeaderboard(){
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
+
+  montarBotaoCsv("export-leaderboard", "leaderboard_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
+    ["Marca","MW inicial","MW final","Share inicial %","Share final %","Delta p.p.","Cresc. relativo %"],
+    linhasOrdenadas.map(function(l){
+      return [l.marca, l.mw_inicial.toFixed(3), l.mw_final.toFixed(3), l.share_inicial_pct.toFixed(2),
+        l.share_final_pct.toFixed(2), l.delta_pontos_percentuais.toFixed(2),
+        l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null ? "" : l.crescimento_relativo_pct.toFixed(1))];
+    }));
 }
 
 // Motor generico por tras de Faixa/Classe/Tarifa/Distribuidora -- as quatro secoes
@@ -1325,6 +1398,7 @@ function renderCategoria(cfg){
   [cfg.rotuloColuna,"Marca","Share na categoria","Share geral","Índice"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
+  var linhasCsv = [];
   categorias.forEach(function(c){
     (especialistas[c] || []).slice(0, 3).forEach(function(item, idx){
       var tr = el("tr");
@@ -1336,16 +1410,20 @@ function renderCategoria(cfg){
       if (item[3] != null && item[3] >= 1.5) tdIdx.className = "forte";
       tr.appendChild(tdIdx);
       tbody.appendChild(tr);
+      linhasCsv.push([c, item[0], item[1].toFixed(2), item[2].toFixed(2), item[3] == null ? "" : item[3].toFixed(2)]);
     });
   });
   tabela.appendChild(tbody);
+
+  montarBotaoCsv(cfg.idExport, cfg.idTabela + "_" + estado.campo + "_" + estado.intervaloAte + ".csv",
+    [cfg.rotuloColuna, "Marca", "Share na categoria %", "Share geral %", "Indice"], linhasCsv);
 }
 
 function renderFaixa(){
   renderCategoria({
     chaveOrdem:"faixas_ordem", chaveMw:"faixa_mw", chavePerfil:"faixa_perfil", chaveEspecialistas:"faixa_especialistas",
     idLegenda:"legenda-faixa", idCaption:"legenda-faixa-caption", idSvg:"svg-faixa",
-    idExplicacao:"explicacao-especialistas-faixa", idTabela:"tabela-faixa", rotuloColuna:"Faixa",
+    idExplicacao:"explicacao-especialistas-faixa", idTabela:"tabela-faixa", idExport:"export-faixa", rotuloColuna:"Faixa",
     artigo:"a", rotuloSingular:"faixa", rotuloPlural:"Faixas", duasPontas:true,
   });
 }
@@ -1354,7 +1432,7 @@ function renderClasse(){
   renderCategoria({
     chaveOrdem:"classes_ordem", chaveMw:"classe_mw", chavePerfil:"classe_perfil", chaveEspecialistas:"classe_especialistas",
     idLegenda:"legenda-classe", idCaption:"legenda-classe-caption", idSvg:"svg-classe",
-    idExplicacao:"explicacao-especialistas-classe", idTabela:"tabela-classe", rotuloColuna:"Classe",
+    idExplicacao:"explicacao-especialistas-classe", idTabela:"tabela-classe", idExport:"export-classe", rotuloColuna:"Classe",
     artigo:"a", rotuloSingular:"classe de consumo", rotuloPlural:"Classes", duasPontas:false,
   });
 }
@@ -1363,7 +1441,7 @@ function renderTarifa(){
   renderCategoria({
     chaveOrdem:"tarifas_ordem", chaveMw:"tarifa_mw", chavePerfil:"tarifa_perfil", chaveEspecialistas:"tarifa_especialistas",
     idLegenda:"legenda-tarifa", idCaption:"legenda-tarifa-caption", idSvg:"svg-tarifa",
-    idExplicacao:"explicacao-especialistas-tarifa", idTabela:"tabela-tarifa", rotuloColuna:"Grupo tarifário",
+    idExplicacao:"explicacao-especialistas-tarifa", idTabela:"tabela-tarifa", idExport:"export-tarifa", rotuloColuna:"Grupo tarifário",
     artigo:"o", rotuloSingular:"grupo tarifário", rotuloPlural:"Grupos tarifários", duasPontas:false,
   });
 }
@@ -1372,7 +1450,7 @@ function renderDistribuidora(){
   renderCategoria({
     chaveOrdem:"distribuidoras_ordem", chaveMw:"distribuidora_mw", chavePerfil:"distribuidora_perfil", chaveEspecialistas:"distribuidora_especialistas",
     idLegenda:"legenda-distribuidora", idCaption:"legenda-distribuidora-caption", idSvg:"svg-distribuidora",
-    idExplicacao:"explicacao-especialistas-distribuidora", idTabela:"tabela-distribuidora", rotuloColuna:"Distribuidora",
+    idExplicacao:"explicacao-especialistas-distribuidora", idTabela:"tabela-distribuidora", idExport:"export-distribuidora", rotuloColuna:"Distribuidora",
     artigo:"a", rotuloSingular:"distribuidora", rotuloPlural:"Distribuidoras", duasPontas:false,
     rotuloOutros:"Outras distribuidoras",
   });
@@ -1611,6 +1689,13 @@ function renderGeoMunicipios(dados, de, ate, uf){
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
+
+  montarBotaoCsv("export-geo", "municipios_" + uf + "_" + estado.campo + "_" + de + "_" + ate + ".csv",
+    ["#","Municipio","MW","% do estado","Lider 1","Lider 2","Lider 3"],
+    linhas.map(function(m, i){
+      return [i+1, m.nome, m.total_mw.toFixed(3), (totalUf>0?m.total_mw/totalUf*100:0).toFixed(2),
+        m.lideres[0]||"", m.lideres[1]||"", m.lideres[2]||""];
+    }));
 }
 
 function renderRanking(){
@@ -1691,6 +1776,11 @@ function renderRanking(){
   tbody.appendChild(trNaoInf);
   tabela.appendChild(tbody);
 
+  montarBotaoCsv("export-ranking", "ranking_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
+    ["#","Marca","MW","Participacao %"],
+    linhas.map(function(l, i){ return [i+1, l.marca, l.mw.toFixed(3), l.share.toFixed(2)]; })
+      .concat([["", "Nao identificado / nao informado", naoInformadoMw.toFixed(3), (totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)]]));
+
   document.getElementById("explicacao-nao-identificado").textContent =
     "Amostra dos maiores registros de fabricante de " + (estado.campo === "modulo" ? "módulo" : "inversor") +
     " ainda não associados a uma marca conhecida, por volume instalado. O recorte não varia por período, pois " +
@@ -1737,6 +1827,7 @@ function renderTudo(){
   renderTarifa();
   renderDistribuidora();
   renderGeografia();
+  atualizarRelatorioSeAberto();
 
   var rodape = document.getElementById("rodape");
   limpar(rodape);
@@ -1795,6 +1886,115 @@ function montarPainelAjuda(){
   });
 }
 montarPainelAjuda();
+
+// Resumo de uma tela so, pra imprimir/copiar e mandar pra fora do dashboard (ex.:
+// email) sem precisar descrever os numeros na mao. Reflete o filtro corrente (campo,
+// intervalo, estado) no momento em que é aberto -- não atualiza sozinho se o filtro
+// mudar com o resumo já aberto, precisa fechar e abrir de novo.
+function gerarConteudoRelatorio(){
+  var dados = DADOS.campos[estado.campo];
+  var de = estado.intervaloDe, ate = estado.intervaloAte;
+  var chaves = chavesNoIntervalo(de, ate);
+  var marcasMw = somarDict(dados.periodos.marcas_mw, chaves);
+  var totalMw = somarEscalar(dados.periodos.totais_mw, chaves);
+  var ranking = Object.keys(marcasMw).map(function(m){ return { marca:m, mw:marcasMw[m] }; }).sort(function(a,b){ return b.mw - a.mw; });
+  var top3 = ranking.slice(0, 3);
+  var top3Pct = totalMw > 0 ? top3.reduce(function(a,l){ return a + l.mw; }, 0) / totalMw * 100 : 0;
+  var identificadoMw = ranking.reduce(function(a,l){ return a + l.mw; }, 0);
+  var identificadoPct = totalMw > 0 ? identificadoMw / totalMw * 100 : 0;
+
+  var itens = [];
+  if (ranking[0]){
+    itens.push({ rotulo:"Líder", texto: ranking[0].marca + ", " + (totalMw>0?ranking[0].mw/totalMw*100:0).toFixed(1) + "% do mercado (" + fmtMW(ranking[0].mw) + ")" });
+  }
+  itens.push({ rotulo:"Concentração", texto: "as 3 maiores marcas somam " + top3Pct.toFixed(0) + "% do total instalado" });
+  if (de !== ate){
+    var lb = calcularLeaderboard(dados, de, ate);
+    if (lb.length){
+      var subiu = lb.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; })[0];
+      var caiu = lb.slice().sort(function(a,b){ return a.delta_pontos_percentuais - b.delta_pontos_percentuais; })[0];
+      itens.push({ rotulo:"Maior alta", texto: subiu.marca + " (" + fmtPct(subiu.delta_pontos_percentuais) + ")" });
+      itens.push({ rotulo:"Maior queda", texto: caiu.marca + " (" + fmtPct(caiu.delta_pontos_percentuais) + ")" });
+    }
+  }
+  itens.push({ rotulo:"Total instalado", texto: fmtMW(totalMw) + " no período" });
+  itens.push({ rotulo:"Identificação", texto: identificadoPct.toFixed(1) + "% do volume com marca identificada com segurança" });
+
+  var lead = ranking[0]
+    ? ranking[0].marca + " lidera o mercado de " + (estado.campo==="modulo"?"módulos":"inversores") + " " + emIntervalo(dados, de, ate) +
+      ", com " + (totalMw>0?ranking[0].mw/totalMw*100:0).toFixed(1) + "% de participação. As 3 maiores marcas juntas somam " +
+      top3Pct.toFixed(0) + "% do total instalado."
+    : "Nenhuma marca identificada no intervalo selecionado.";
+
+  return { lead: lead, itens: itens, de: de, ate: ate };
+}
+
+function montarRelatorio(){
+  var dados = DADOS.campos[estado.campo];
+  var r = gerarConteudoRelatorio();
+  var conteudo = document.getElementById("relatorio-conteudo");
+  limpar(conteudo);
+
+  var tituloCampo = estado.campo === "modulo" ? "Módulos" : "Inversores";
+  conteudo.appendChild(el("h2", { text: "Radar de Marcas Solares: " + tituloCampo }));
+  var periodoTexto = emIntervalo(dados, r.de, r.ate);
+  conteudo.appendChild(el("p", { class:"rel-meta",
+    text: periodoTexto.charAt(0).toUpperCase() + periodoTexto.slice(1) + " · gerado em " + new Date().toLocaleDateString("pt-BR") }));
+  conteudo.appendChild(el("p", { class:"rel-lead", text: r.lead }));
+  var ul = el("ul");
+  r.itens.forEach(function(item){
+    var li = el("li");
+    li.appendChild(el("b", { text: item.rotulo + ": " }));
+    li.appendChild(document.createTextNode(item.texto));
+    ul.appendChild(li);
+  });
+  conteudo.appendChild(ul);
+
+  conteudo.dataset.textoSimples = r.lead + "\n\n" + r.itens.map(function(item){ return "- " + item.rotulo + ": " + item.texto; }).join("\n");
+}
+
+// O botao alterna rotulo (Gerar resumo / Fechar resumo) em vez de ter um botao
+// "Fechar" a parte -- mesmo elemento, mesma acao de abrir/fechar, sem dois jeitos
+// diferentes de fazer a mesma coisa.
+function relatorioAberto(){
+  return document.getElementById("botao-gerar-relatorio").getAttribute("aria-expanded") === "true";
+}
+// Chamado de qualquer lugar que muda campo/intervalo -- se o resumo estiver
+// aberto, atualiza os numeros na hora, sem precisar fechar e abrir de novo.
+function atualizarRelatorioSeAberto(){
+  if (relatorioAberto()) montarRelatorio();
+}
+function montarBotaoRelatorio(){
+  var botao = document.getElementById("botao-gerar-relatorio");
+  var secao = document.getElementById("relatorio");
+  botao.addEventListener("click", function(){
+    if (relatorioAberto()){
+      secao.hidden = true;
+      botao.setAttribute("aria-expanded", "false");
+      botao.textContent = "📄 Gerar resumo";
+    } else {
+      montarRelatorio();
+      secao.hidden = false;
+      botao.setAttribute("aria-expanded", "true");
+      botao.textContent = "Fechar resumo";
+      secao.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+  });
+  document.getElementById("botao-copiar-relatorio").addEventListener("click", function(e){
+    var conteudo = document.getElementById("relatorio-conteudo");
+    var texto = conteudo.dataset.textoSimples || conteudo.textContent;
+    var btn = e.currentTarget;
+    var original = btn.textContent;
+    var restaurar = function(){ setTimeout(function(){ btn.textContent = original; }, 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(texto).then(function(){ btn.textContent = "Copiado!"; restaurar(); })
+        .catch(function(){ btn.textContent = "Não foi possível copiar"; restaurar(); });
+    } else {
+      btn.textContent = "Não suportado neste navegador"; restaurar();
+    }
+  });
+}
+montarBotaoRelatorio();
 
 // Botao flutuante de topo/volta: alterna entre "subir pro topo" (lembrando de onde
 // saiu) e "voltar" pra essa posicao lembrada. So dois estados, um round-trip --
