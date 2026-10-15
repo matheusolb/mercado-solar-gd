@@ -411,6 +411,11 @@
       <div class="tabela-export" id="export-distribuidora"></div>
       <div class="table-scroll"><table class="dados" id="tabela-distribuidora"></table></div>
     </details>
+    <details class="table-toggle" open><summary>Capilaridade: em quantas distribuidoras cada marca está</summary>
+      <p class="card-caption" id="capilaridade-dist-texto" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-capilaridade-dist"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-capilaridade-dist"></table></div>
+    </details>
   </section>
 
   <section class="card">
@@ -426,6 +431,11 @@
     <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary id="geo-tabela-detalhe-titulo">Ver tabela completa</summary>
       <div class="tabela-export" id="export-geo"></div>
       <div class="table-scroll"><table class="dados" id="tabela-geo"></table></div>
+    </details>
+    <details class="table-toggle" open><summary>Presença nacional x regional por marca</summary>
+      <p class="card-caption" id="capilaridade-geo-texto" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-capilaridade-geo"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-capilaridade-geo"></table></div>
     </details>
   </section>
 
@@ -632,6 +642,79 @@ function especialistasNoIntervalo(dados, chaveComposicao, chaves, perfil, porIns
   });
   return resultado;
 }
+// Capilaridade: soma a composição completa (marca x UF ou marca x distribuidora) no
+// intervalo e mede, por marca, em quantas categorias ela tem presença relevante
+// (>= 1% do volume dela) e quanto do volume fica nas 3 maiores. O perfil compara
+// essa concentração com a do mercado como um todo -- SP sozinho pesa muito, então
+// "nacional" é estar perto da distribuição do mercado, não espalhado por igual.
+function capilaridade(dados, chaveComposicao, chaves, porInstalacoes){
+  var col = porInstalacoes ? 2 : 1, nomes = dados.municipios_marcas_todas;
+  var porMarca = {}, mercado = {};
+  chaves.forEach(function(chave){
+    var comp = dados.periodos[chaveComposicao][chave] || {};
+    Object.keys(comp).forEach(function(cat){
+      comp[cat].forEach(function(it){
+        var m = porMarca[it[0]] || (porMarca[it[0]] = {});
+        m[cat] = (m[cat] || 0) + it[col];
+        mercado[cat] = (mercado[cat] || 0) + it[col];
+      });
+    });
+  });
+  function medir(valores){
+    var ord = Object.keys(valores).sort(function(a, b){ return valores[b] - valores[a]; });
+    var total = ord.reduce(function(a, c){ return a + valores[c]; }, 0);
+    var top3 = ord.slice(0, 3).reduce(function(a, c){ return a + valores[c]; }, 0);
+    return { total: total, top3pct: total > 0 ? top3 / total * 100 : 0, principais: ord.slice(0, 3),
+             relevantes: ord.filter(function(c){ return valores[c] >= total * 0.01; }).length };
+  }
+  var ref = medir(mercado);
+  var marcas = Object.keys(porMarca).map(function(idx){
+    var r = medir(porMarca[idx]); r.marca = nomes[idx];
+    var excesso = r.top3pct - ref.top3pct;
+    r.perfil = excesso < 10 ? "Nacional" : excesso < 25 ? "Regional" : "Concentrada";
+    return r;
+  }).sort(function(a, b){ return b.total - a.total; });
+  return { mercado: ref, marcas: marcas };
+}
+
+function renderCapilaridade(chaveComposicao, chave, rotuloPlural, rotuloColuna){
+  var dados = DADOS.campos[estado.campo];
+  if (!dados.periodos[chaveComposicao]) return;
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var chaves = chavesNoIntervalo(estado.intervaloDe, estado.intervaloAte);
+  var cap = capilaridade(dados, chaveComposicao, chaves, porInstalacoes);
+  var top = cap.marcas.slice(0, 15);
+  var nacionais = top.filter(function(m){ return m.perfil === "Nacional"; });
+  var concentradas = top.filter(function(m){ return m.perfil === "Concentrada"; });
+  var maisEspalhada = top.slice().sort(function(a, b){ return a.top3pct - b.top3pct; })[0];
+  var maisConcentrada = top.slice().sort(function(a, b){ return b.top3pct - a.top3pct; })[0];
+  var base = porInstalacoes ? "das instalações" : "do volume";
+  document.getElementById("capilaridade-" + chave + "-texto").textContent =
+    "No mercado como um todo, as 3 maiores " + rotuloPlural + " (" + cap.mercado.principais.join(", ") + ") concentram " +
+    cap.mercado.top3pct.toFixed(0) + "% " + base + " " + emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + ". " +
+    "Entre as 15 maiores marcas, " + nacionais.length + " têm perfil nacional e " + concentradas.length + " são concentradas. " +
+    (maisEspalhada ? maisEspalhada.marca + " é a mais espalhada (" + maisEspalhada.top3pct.toFixed(0) + "% nas 3 maiores); " : "") +
+    (maisConcentrada ? maisConcentrada.marca + " a mais concentrada (" + maisConcentrada.top3pct.toFixed(0) + "% em " + maisConcentrada.principais.join(", ") + "). " : "") +
+    "Perfil: nacional = concentração até 10 p.p. acima da do mercado; regional = 10 a 25 p.p.; concentrada = mais de 25 p.p. " +
+    "Presença relevante = " + rotuloColuna.toLowerCase() + " com pelo menos 1% do volume da marca.";
+
+  var tabela = document.getElementById("tabela-capilaridade-" + chave);
+  limpar(tabela);
+  var cab = ["Marca", rotuloColuna + " com presença relevante", "% nas 3 maiores", "Principais", "Perfil"];
+  var thead = el("thead"), trh = el("tr");
+  cab.forEach(function(h){ trh.appendChild(el("th", { text:h })); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody");
+  top.forEach(function(m){
+    var tr = el("tr");
+    [m.marca, String(m.relevantes), m.top3pct.toFixed(0) + "%", m.principais.join(", "), m.perfil].forEach(function(v){ tr.appendChild(el("td", { text:v })); });
+    tbody.appendChild(tr);
+  });
+  tabela.appendChild(tbody);
+  montarBotaoCsv("export-capilaridade-" + chave, "capilaridade_" + chave + "_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
+    cab, cap.marcas.map(function(m){ return [m.marca, m.relevantes, m.top3pct.toFixed(1), m.principais.join(", "), m.perfil]; }));
+}
+
 function somarPerfil(perfilPorPeriodo, chaves){
   var total = {};
   chaves.forEach(function(chave){
@@ -852,13 +935,25 @@ function calcularLeaderboard(dados, chaveDe, chaveAte){
   });
 }
 
+// Pontos da comparação "quem ganhou/perdeu": os extremos do intervalo; com um ano só
+// selecionado (De == Até), compara com o ano anterior -- comparar um ano com ele
+// mesmo daria tudo 0,0 p.p.
+function extremosComparacao(dados){
+  var de = estado.intervaloDe, ate = estado.intervaloAte;
+  if (de !== ate) return { de: de, ate: ate, ajustado: false };
+  var anos = dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; });
+  var i = anos.indexOf(ate);
+  return i > 0 ? { de: anos[i-1], ate: ate, ajustado: true } : { de: de, ate: ate, ajustado: false };
+}
+
 function resumoDestaques(dados){
-  var linhas = calcularLeaderboard(dados, estado.intervaloDe, estado.intervaloAte);
+  var cmp = extremosComparacao(dados);
+  var linhas = calcularLeaderboard(dados, cmp.de, cmp.ate);
   var porShareFinal = linhas.slice().sort(function(a,b){ return b.share_final_pct - a.share_final_pct; });
   var porDelta = linhas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
   return {
-    anoBase: estado.intervaloDe,
-    anoRecente: estado.intervaloAte,
+    anoBase: cmp.de,
+    anoRecente: cmp.ate,
     lider: porShareFinal[0],
     maiorAlta: porDelta[0],
     maiorQueda: porDelta[porDelta.length-1],
@@ -982,7 +1077,9 @@ function renderTendencia(){
   var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
   var top8Dinamico = topMarcasPorPeriodos(dados, anosNoRange(estado.intervaloDe, estado.intervaloAte), TOP_N_COR);
   var marcas = top8Dinamico.concat(dados.marcas_cor.slice(-2));
-  var serieMensalDin = serieMensalDinamica(dados, marcas, porInstalacoes);
+  var serieMensalDin = serieMensalDinamica(dados, marcas, porInstalacoes).filter(function(p){
+    return p.periodo <= dados.ultimo_mes_completo;
+  });
   var serieBruta = estado.granularidade === "mensal" ? serieMensalDin
                   : estado.granularidade === "trimestral" ? agregarPorChave(serieMensalDin, function(p){ return mesParaTrimestre(p.periodo); })
                   : agregarAnual(serieMensalDin);
@@ -1044,7 +1141,7 @@ function renderTendencia(){
 
   var strideRotulo = Math.max(1, Math.ceil(n / 14));
   periodos.forEach(function(p, i){
-    if (i % strideRotulo === 0 || i === n-1){
+    if ((i % strideRotulo === 0 && n-1-i >= Math.ceil(strideRotulo/2)) || i === n-1){
       svg.appendChild(svgEl("text", { class:"eixo-txt", x:xs[i], y:H-MB+16, "text-anchor":"middle", text:p.periodo }));
     }
   });
@@ -1317,8 +1414,9 @@ function renderMarcaEspecifica(){
 
 function renderLeaderboard(){
   var dados = DADOS.campos[estado.campo];
+  var cmp = extremosComparacao(dados), de = cmp.de, ate = cmp.ate;
 
-  var linhasTodas = calcularLeaderboard(dados, estado.intervaloDe, estado.intervaloAte);
+  var linhasTodas = calcularLeaderboard(dados, de, ate);
 
   var ordenadaPP = linhasTodas.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; });
   var subiuMais = ordenadaPP[0], caiuMais = ordenadaPP[ordenadaPP.length-1];
@@ -1329,12 +1427,13 @@ function renderLeaderboard(){
   var notaMetricaLb = estado.categoriaMetrica === "instalacoes"
     ? "Participação de mercado é sempre medida em MW, independente da métrica escolhida no cabeçalho. "
     : "";
-  if (estado.intervaloDe === estado.intervaloAte){
+  if (de === ate){
     document.getElementById("legenda-leaderboard-caption").textContent = notaMetricaLb +
       "Selecione um intervalo (De ≠ Até) no cabeçalho para comparar crescimento entre dois pontos no tempo.";
   } else {
   document.getElementById("legenda-leaderboard-caption").textContent = notaMetricaLb +
-    "De " + rotuloExtenso(dados, estado.intervaloDe) + " para " + rotuloExtenso(dados, estado.intervaloAte) + ": " +
+    (cmp.ajustado ? "Com um ano só selecionado, a comparação é com o ano anterior. " : "") +
+    "De " + rotuloExtenso(dados, de) + " para " + rotuloExtenso(dados, ate) + ": " +
     subiuMais.marca + " ganhou mais espaço (" + fmtPct(subiuMais.delta_pontos_percentuais) + " de participação), " +
     "enquanto " + caiuMais.marca + " foi quem mais perdeu (" + fmtPct(caiuMais.delta_pontos_percentuais) + ").";
   }
@@ -1375,12 +1474,12 @@ function renderLeaderboard(){
     (function(item){
       anexarHover(hit, function(mx,my){
         var linhasTip = [
-          { nome:"Share " + dados.periodos.rotulos[estado.intervaloDe], valor: item.share_inicial_pct.toFixed(2) + "%" },
-          { nome:"Share " + dados.periodos.rotulos[estado.intervaloAte], valor: item.share_final_pct.toFixed(2) + "%" },
-          { nome:"MW " + dados.periodos.rotulos[estado.intervaloDe], valor: fmtMW(item.mw_inicial) },
-          { nome:"MW " + dados.periodos.rotulos[estado.intervaloAte], valor: fmtMW(item.mw_final) },
-          { nome:"Instalações " + dados.periodos.rotulos[estado.intervaloDe], valor: item.inst_inicial.toLocaleString("pt-BR") },
-          { nome:"Instalações " + dados.periodos.rotulos[estado.intervaloAte], valor: item.inst_final.toLocaleString("pt-BR") }
+          { nome:"Share " + dados.periodos.rotulos[de], valor: item.share_inicial_pct.toFixed(2) + "%" },
+          { nome:"Share " + dados.periodos.rotulos[ate], valor: item.share_final_pct.toFixed(2) + "%" },
+          { nome:"MW " + dados.periodos.rotulos[de], valor: fmtMW(item.mw_inicial) },
+          { nome:"MW " + dados.periodos.rotulos[ate], valor: fmtMW(item.mw_final) },
+          { nome:"Instalações " + dados.periodos.rotulos[de], valor: item.inst_inicial.toLocaleString("pt-BR") },
+          { nome:"Instalações " + dados.periodos.rotulos[ate], valor: item.inst_final.toLocaleString("pt-BR") }
         ];
         if (!item.entrante_novo && item.crescimento_relativo_pct !== null){
           linhasTip.push({ nome:"Crescimento relativo", valor: (item.crescimento_relativo_pct>=0?"+":"") + item.crescimento_relativo_pct.toFixed(0) + "%" });
@@ -1414,7 +1513,7 @@ function renderLeaderboard(){
   });
   tabela.appendChild(tbody);
 
-  montarBotaoCsv("export-leaderboard", "leaderboard_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
+  montarBotaoCsv("export-leaderboard", "leaderboard_" + estado.campo + "_" + de + "_" + ate + ".csv",
     ["Marca","MW inicial","MW final","Instalacoes inicial","Instalacoes final","Share inicial %","Share final %","Delta p.p.","Cresc. relativo %"],
     linhasOrdenadas.map(function(l){
       return [l.marca, l.mw_inicial.toFixed(3), l.mw_final.toFixed(3), l.inst_inicial, l.inst_final, l.share_inicial_pct.toFixed(2),
@@ -1617,6 +1716,7 @@ function renderDistribuidora(){
     artigo:"a", rotuloSingular:"distribuidora", rotuloPlural:"Distribuidoras", duasPontas:false,
     rotuloOutros:"Outras distribuidoras",
   });
+  renderCapilaridade("distribuidora_composicao_total", "dist", "distribuidoras", "Distribuidoras");
 }
 
 var NAO_CLASSIFICADO = "Não classificado";
@@ -1828,6 +1928,7 @@ function renderBreadcrumbGeo(){
 }
 
 function renderGeografia(){
+  renderCapilaridade("uf_composicao", "geo", "UFs", "Estados");
   var dados = DADOS.campos[estado.campo];
   var de = estado.intervaloDe, ate = estado.intervaloAte;
   renderBreadcrumbGeo();
@@ -2219,8 +2320,9 @@ function gerarConteudoRelatorio(){
     itens.push({ rotulo:"Líder", texto: ranking[0].marca + ", " + (totalMw>0?ranking[0].mw/totalMw*100:0).toFixed(1) + "% do mercado (" + fmtMW(ranking[0].mw) + ")" });
   }
   itens.push({ rotulo:"Concentração", texto: "as 3 maiores marcas somam " + top3Pct.toFixed(0) + "% do total instalado" });
-  if (de !== ate){
-    var lb = calcularLeaderboard(dados, de, ate);
+  var cmpResumo = extremosComparacao(dados);
+  if (cmpResumo.de !== cmpResumo.ate){
+    var lb = calcularLeaderboard(dados, cmpResumo.de, cmpResumo.ate);
     if (lb.length){
       var subiu = lb.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; })[0];
       var caiu = lb.slice().sort(function(a,b){ return a.delta_pontos_percentuais - b.delta_pontos_percentuais; })[0];

@@ -393,6 +393,10 @@ def montar_payload_campo(campo: str) -> dict:
     tarifa_mw, tarifa_inst, tarifa_perfil, tarifa_composicao = {}, {}, {}, {}
     dist_mw, dist_inst, dist_perfil, dist_composicao = {}, {}, {}, {}
     tec_mw, tec_inst, tec_perfil, tec_composicao = {}, {}, {}, {}
+    # capilaridade: composição completa por UF e por distribuidora (todas, sem o fold do top-10)
+    uf_composicao, dist_composicao_total = {}, {}
+    ufs_todas = sorted(df["SigUF"].dropna().astype(str).unique())
+    distribuidoras_todas = sorted(df["distribuidora"].dropna().astype(str).unique())
     tecnologias_ordem = [t for t in mrm.CONFIG[campo]["ordem"] if t in set(df["tecnologia"])]
     for chave, meses in periodos_meses.items():
         totais_mw[chave] = round(df[df["ano_mes"].isin(meses)]["soma_kw"].sum() / 1000, 3)
@@ -428,6 +432,8 @@ def montar_payload_campo(campo: str) -> dict:
         tec_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "tecnologia", tecnologias_ordem)
         tec_perfil[chave] = perfil_categoria(df, meses, "tecnologia", tecnologias_ordem)
         tec_composicao[chave] = composicao_categoria(df, meses, "tecnologia", tecnologias_ordem, municipios_marcas_indice)
+        uf_composicao[chave] = composicao_categoria(df, meses, "SigUF", ufs_todas, municipios_marcas_indice)
+        dist_composicao_total[chave] = composicao_categoria(df, meses, "distribuidora", distribuidoras_todas, municipios_marcas_indice)
 
     return {
         "marcas": marcas_grafico,
@@ -481,6 +487,8 @@ def montar_payload_campo(campo: str) -> dict:
             "tecnologia_inst": tec_inst,
             "tecnologia_perfil": tec_perfil,
             "tecnologia_composicao": tec_composicao,
+            "uf_composicao": uf_composicao,
+            "distribuidora_composicao_total": dist_composicao_total,
         },
     }
 
