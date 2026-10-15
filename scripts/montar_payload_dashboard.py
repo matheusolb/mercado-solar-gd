@@ -435,6 +435,18 @@ def montar_payload_campo(campo: str) -> dict:
         uf_composicao[chave] = composicao_categoria(df, meses, "SigUF", ufs_todas, municipios_marcas_indice)
         dist_composicao_total[chave] = composicao_categoria(df, meses, "distribuidora", distribuidoras_todas, municipios_marcas_indice)
 
+    # "Últimos 12 meses" compara com os 12 meses imediatamente anteriores. Só os totais
+    # por marca, que é o que "Quem ganhou e quem perdeu espaço" usa -- não entra em
+    # "ordem", então não vira opção de intervalo nem pesa nas outras seções.
+    meses_ant = janela_12m(ancora - 12)
+    sub_ant = df[df["ano_mes"].isin(meses_ant)]
+    totais_mw["anteriores_12m"] = round(sub_ant["soma_kw"].sum() / 1000, 3)
+    totais_inst["anteriores_12m"] = int(sub_ant["qtd_instalacoes"].sum())
+    marcas_mw["anteriores_12m"] = totais_por_marca_mw(df, meses_ant)
+    marcas_inst["anteriores_12m"] = totais_por_marca_instalacoes(df, meses_ant)
+    rotulos["anteriores_12m"] = "12 meses anteriores"
+    extremos["anteriores_12m"] = [meses_ant[0], meses_ant[-1]]
+
     return {
         "marcas": marcas_grafico,
         "marcas_cor": marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO],

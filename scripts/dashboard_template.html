@@ -147,8 +147,6 @@
   .eixo-txt{fill:var(--tinta-muda); font-size:10.5px;}
   .eixo-txt.forte{fill:var(--acento); font-weight:700;}
   .eixo-linha{stroke:var(--grade); stroke-width:1;}
-  .fora-intervalo{fill:var(--superficie); fill-opacity:.62; pointer-events:none;}
-  .rotulo-intervalo{font-weight:700; fill:var(--tinta);}
   .destaques{margin:12px 0 4px; padding-left:18px; display:flex; flex-direction:column; gap:5px; font-size:13px; line-height:1.5; color:var(--tinta-2);}
   .destaques b{color:var(--tinta);}
   .divisor-secao{padding-top:14px; border-top:1px solid var(--grade);}
@@ -265,13 +263,9 @@
       <div class="filtro-grupo" id="filtro-categoria-metrica"></div>
     </div>
   </div>
-  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e "Quem ganhou e quem perdeu espaço" compara o início com o fim. O painel abre no recorte recente; a Tendência mostra sempre o histórico completo, com o intervalo em destaque. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
+  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e "Quem ganhou e quem perdeu espaço" compara o início com o fim. O painel abre no recorte recente; o atalho "Histórico" mostra a série completa desde 2020. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
 
-  <div class="filtros">
-    <button type="button" class="botao-ajuda" id="botao-gerar-relatorio" aria-expanded="false">📄 Gerar resumo</button>
-  </div>
-
-  <section class="card relatorio" id="relatorio" hidden>
+  <section class="card relatorio" id="relatorio">
     <div class="relatorio-acoes">
       <button type="button" class="botao-ajuda" id="botao-copiar-relatorio">Copiar texto</button>
     </div>
@@ -579,7 +573,21 @@ function anosNoRange(anoDe, anoAte){
   for (var a = parseInt(anoDe,10); a <= parseInt(anoAte,10); a++) lista.push(String(a));
   return lista;
 }
-var chavesNoIntervalo = anosNoRange;
+// De == Até é um período só (um ano ou "ultimos_12m"); De < Até soma os anos.
+function chavesNoIntervalo(de, ate){ return de === ate ? [de] : anosNoRange(de, ate); }
+
+// Mês/trimestre/ano da série (ex.: "2025-03", "2025-Q1", "2025") cai no intervalo?
+// Feito por faixa de meses para funcionar também com "Últimos 12 meses".
+function periodoNoIntervalo(periodo){
+  var dados = DADOS.campos[estado.campo], ini, fim;
+  var q = /^(\d{4})-Q(\d)$/.exec(periodo);
+  if (q){ var m = parseInt(q[2], 10) * 3; ini = q[1] + "-" + ("0" + (m - 2)).slice(-2); fim = q[1] + "-" + ("0" + m).slice(-2); }
+  else if (/^\d{4}$/.test(periodo)){ ini = periodo + "-01"; fim = periodo + "-12"; }
+  else { ini = fim = periodo; }
+  var de = estado.intervaloDe, ate = estado.intervaloAte;
+  var janela = de === "ultimos_12m" ? dados.periodos.extremos.ultimos_12m : [de + "-01", ate + "-12"];
+  return fim >= janela[0] && ini <= janela[1];
+}
 
 // Helpers pra somar dicionarios por-periodo do payload num intervalo De->Ate --
 // e o que permite que Ranking/Faixa/Classe/Tarifa/Distribuidora/Geografia deixem
@@ -683,7 +691,7 @@ function renderCapilaridade(chaveComposicao, chave, rotuloPlural, rotuloColuna){
   var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var chaves = chavesNoIntervalo(estado.intervaloDe, estado.intervaloAte);
   var cap = capilaridade(dados, chaveComposicao, chaves, porInstalacoes);
-  var top = cap.marcas.slice(0, 15);
+  var top = cap.marcas.slice(0, 30);
   var nacionais = top.filter(function(m){ return m.perfil === "Nacional"; });
   var concentradas = top.filter(function(m){ return m.perfil === "Concentrada"; });
   var maisEspalhada = top.slice().sort(function(a, b){ return a.top3pct - b.top3pct; })[0];
@@ -692,7 +700,7 @@ function renderCapilaridade(chaveComposicao, chave, rotuloPlural, rotuloColuna){
   document.getElementById("capilaridade-" + chave + "-texto").textContent =
     "No mercado como um todo, as 3 maiores " + rotuloPlural + " (" + cap.mercado.principais.join(", ") + ") concentram " +
     cap.mercado.top3pct.toFixed(0) + "% " + base + " " + emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + ". " +
-    "Entre as 15 maiores marcas, " + nacionais.length + " têm perfil nacional e " + concentradas.length + " são concentradas. " +
+    "Entre as " + top.length + " maiores marcas, " + nacionais.length + " têm perfil nacional e " + concentradas.length + " são concentradas. " +
     (maisEspalhada ? maisEspalhada.marca + " é a mais espalhada (" + maisEspalhada.top3pct.toFixed(0) + "% nas 3 maiores); " : "") +
     (maisConcentrada ? maisConcentrada.marca + " a mais concentrada (" + maisConcentrada.top3pct.toFixed(0) + "% em " + maisConcentrada.principais.join(", ") + "). " : "") +
     "Perfil: nacional = concentração até 10 p.p. acima da do mercado; regional = 10 a 25 p.p.; concentrada = mais de 25 p.p. " +
@@ -796,7 +804,7 @@ function emIntervalo(dados, de, ate){
 function rotuloExtenso(dados, chave){
   var base = dados.periodos.rotulos[chave];
   var ext = dados.periodos.extremos && dados.periodos.extremos[chave];
-  if (chave === "ultimos_12m" && ext) return base + " (" + ext[0] + " a " + ext[1] + ")";
+  if ((chave === "ultimos_12m" || chave === "anteriores_12m") && ext) return base + " (" + ext[0] + " a " + ext[1] + ")";
   return base;
 }
 
@@ -838,7 +846,7 @@ function inicializarEstadoPeriodos(){
 function montarSeletorAno(container, dados, valorAtual, onChange){
   limpar(container);
   var sel = el("select", { "aria-label":"Selecionar ano" });
-  dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; }).forEach(function(chave){
+  dados.periodos.ordem.forEach(function(chave){
     var opt = document.createElement("option");
     opt.value = chave; opt.textContent = dados.periodos.rotulos[chave];
     sel.appendChild(opt);
@@ -879,11 +887,13 @@ function montarFiltrosGlobais(){
     atualizarRelatorioSeAberto();
   }
   montarSeletorAno(document.getElementById("filtro-intervalo-de"), dados, estado.intervaloDe, function(v){
-    estado.intervaloDe = v; if (estado.intervaloDe > estado.intervaloAte) estado.intervaloAte = v;
+    var unico = v === "ultimos_12m" || estado.intervaloAte === "ultimos_12m";
+    estado.intervaloDe = v; if (unico || estado.intervaloDe > estado.intervaloAte) estado.intervaloAte = v;
     montarFiltrosGlobais(); rerenderTudoQueDependeDoIntervalo();
   });
   montarSeletorAno(document.getElementById("filtro-intervalo-ate"), dados, estado.intervaloAte, function(v){
-    estado.intervaloAte = v; if (estado.intervaloAte < estado.intervaloDe) estado.intervaloDe = v;
+    var unico = v === "ultimos_12m" || estado.intervaloDe === "ultimos_12m";
+    estado.intervaloAte = v; if (unico || estado.intervaloAte < estado.intervaloDe) estado.intervaloDe = v;
     montarFiltrosGlobais(); rerenderTudoQueDependeDoIntervalo();
   });
   // Atalhos: o recorte recente é o padrão (pedido de negócio: posicionamento atual
@@ -892,6 +902,7 @@ function montarFiltrosGlobais(){
   var ult = anos[anos.length-1], pen = anos[anos.length-2] || ult;
   montarFiltro(document.getElementById("filtro-intervalo-atalhos"), [
     { label:"Recente", valor: pen + "|" + ult },
+    { label:"Últimos 12 meses", valor: "ultimos_12m|ultimos_12m" },
     { label:"Último ano fechado", valor: pen + "|" + pen },
     { label:"Histórico", valor: anos[0] + "|" + ult },
   ], estado.intervaloDe + "|" + estado.intervaloAte, function(v){
@@ -941,6 +952,9 @@ function calcularLeaderboard(dados, chaveDe, chaveAte){
 function extremosComparacao(dados){
   var de = estado.intervaloDe, ate = estado.intervaloAte;
   if (de !== ate) return { de: de, ate: ate, ajustado: false };
+  if (ate === "ultimos_12m"){
+    return dados.periodos.marcas_mw.anteriores_12m ? { de: "anteriores_12m", ate: ate, ajustado: true } : { de: de, ate: ate, ajustado: false };
+  }
   var anos = dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; });
   var i = anos.indexOf(ate);
   return i > 0 ? { de: anos[i-1], ate: ate, ajustado: true } : { de: de, ate: ate, ajustado: false };
@@ -1075,7 +1089,7 @@ function renderTendencia(){
   // deveria ocupar uma das cores enquanto voce olha so pra um recorte especifico.
   var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR"); } : fmtMW;
-  var top8Dinamico = topMarcasPorPeriodos(dados, anosNoRange(estado.intervaloDe, estado.intervaloAte), TOP_N_COR);
+  var top8Dinamico = topMarcasPorPeriodos(dados, chavesNoIntervalo(estado.intervaloDe, estado.intervaloAte), TOP_N_COR);
   var marcas = top8Dinamico.concat(dados.marcas_cor.slice(-2));
   var serieMensalDin = serieMensalDinamica(dados, marcas, porInstalacoes).filter(function(p){
     return p.periodo <= dados.ultimo_mes_completo;
@@ -1083,16 +1097,14 @@ function renderTendencia(){
   var serieBruta = estado.granularidade === "mensal" ? serieMensalDin
                   : estado.granularidade === "trimestral" ? agregarPorChave(serieMensalDin, function(p){ return mesParaTrimestre(p.periodo); })
                   : agregarAnual(serieMensalDin);
-  // Série inteira sempre (track record); o intervalo selecionado fica em destaque e
-  // o resto esmaecido, em vez de cortado.
-  var periodos = serieBruta;
-  function noIntervalo(p){ var ano = p.periodo.slice(0,4); return ano >= estado.intervaloDe && ano <= estado.intervaloAte; }
+  // Só o intervalo escolhido; a série completa está no atalho "Histórico".
+  var periodos = serieBruta.filter(function(p){ return periodoNoIntervalo(p.periodo); });
 
   renderLegenda(document.getElementById("legenda-tendencia"), marcas);
   var destaques = resumoDestaques(dados);
   document.getElementById("legenda-tendencia-caption").textContent =
-    destaques.lider.marca + " lidera com " + destaques.lider.share_final_pct.toFixed(1) + "% de participação em " + destaques.anoRecente + ". " +
-    destaques.maiorAlta.marca + " foi quem mais ganhou espaço desde " + destaques.anoBase + " (" + fmtPct(destaques.maiorAlta.delta_pontos_percentuais) +
+    destaques.lider.marca + " lidera com " + destaques.lider.share_final_pct.toFixed(1) + "% de participação " + emPeriodo(dados, destaques.anoRecente) + ". " +
+    destaques.maiorAlta.marca + " foi quem mais ganhou espaço em relação a " + dados.periodos.rotulos[destaques.anoBase].toLowerCase() + " (" + fmtPct(destaques.maiorAlta.delta_pontos_percentuais) +
     "), e " + destaques.maiorQueda.marca + " quem mais perdeu (" + fmtPct(destaques.maiorQueda.delta_pontos_percentuais) + ").";
 
   var svg = document.getElementById("svg-tendencia");
@@ -1130,14 +1142,6 @@ function renderTendencia(){
     var d = caminhoMonotono(topo, true) + " " + caminhoMonotono(baseInvertida, false) + " Z";
     svg.appendChild(svgEl("path", { class:"segmento", d:d, fill:CORES[s] }));
   });
-
-  var iIni = -1, iFim = -1;
-  periodos.forEach(function(p, i){ if (noIntervalo(p)){ if (iIni < 0) iIni = i; iFim = i; } });
-  if (iIni > 0) svg.appendChild(svgEl("rect", { class:"fora-intervalo", x:ML, y:MT, width:iIni*largBanda, height:alturaGrafico }));
-  if (iFim >= 0 && iFim < n-1) svg.appendChild(svgEl("rect", { class:"fora-intervalo", x:ML+(iFim+1)*largBanda, y:MT, width:(n-1-iFim)*largBanda, height:alturaGrafico }));
-  if (iIni >= 0 && (iIni > 0 || iFim < n-1)){
-    svg.appendChild(svgEl("text", { class:"eixo-txt rotulo-intervalo", x:ML+iIni*largBanda+4, y:MT+11, text:"Intervalo selecionado" }));
-  }
 
   var strideRotulo = Math.max(1, Math.ceil(n / 14));
   periodos.forEach(function(p, i){
@@ -1210,8 +1214,7 @@ function renderMultiplos(){
   var periodosTodos = spm.periodos_mensais;
   var indices = [];
   periodosTodos.forEach(function(p, i){
-    var ano = p.slice(0, 4);
-    if (ano >= estado.intervaloDe && ano <= estado.intervaloAte) indices.push(i);
+    if (periodoNoIntervalo(p)) indices.push(i);
   });
 
   var totais = Object.keys(valoresPorMarca).map(function(marca){
@@ -1220,7 +1223,7 @@ function renderMultiplos(){
   }).filter(function(m){ return m.soma > (porInstalacoes ? 0.5 : 0.05); }).sort(function(a, b){ return b.soma - a.soma; });
 
   var top = totais.slice(0, MULTIPLOS_TOP_N);
-  var rotuloPeriodo = estado.intervaloDe === estado.intervaloAte ? "em " + estado.intervaloDe : "entre " + estado.intervaloDe + " e " + estado.intervaloAte;
+  var rotuloPeriodo = emIntervalo(dados, estado.intervaloDe, estado.intervaloAte);
   document.getElementById("legenda-multiplos-caption").textContent =
     "As " + top.length + " maiores marcas " + rotuloPeriodo + ", em escala individual — incluindo marcas hoje " +
     "agregadas em \"Outros\" no gráfico principal.";
@@ -1335,10 +1338,7 @@ function renderMarcaEspecifica(){
 
   var seriesPorMarca = estado.marcasComparadas.map(function(nome, i){
     var completa = serieUnicaPorGranularidade(spm.periodos_mensais, valoresPorMarca[nome], estado.granularidade);
-    var filtrada = completa.filter(function(p){
-      var ano = p.periodo.slice(0,4);
-      return ano >= estado.intervaloDe && ano <= estado.intervaloAte;
-    });
+    var filtrada = completa.filter(function(p){ return periodoNoIntervalo(p.periodo); });
     var total = filtrada.reduce(function(a,p){ return a+p.valor; }, 0);
     var pico = filtrada.reduce(function(m,p){ return p.valor > m.valor ? p : m; }, {valor:-1, periodo:""});
     return { nome:nome, cor:CORES[i % CORES.length], pontos:filtrada, total:total, pico:pico };
@@ -1432,7 +1432,7 @@ function renderLeaderboard(){
       "Selecione um intervalo (De ≠ Até) no cabeçalho para comparar crescimento entre dois pontos no tempo.";
   } else {
   document.getElementById("legenda-leaderboard-caption").textContent = notaMetricaLb +
-    (cmp.ajustado ? "Com um ano só selecionado, a comparação é com o ano anterior. " : "") +
+    (cmp.ajustado ? "Com um período só selecionado, a comparação é com o período anterior de mesmo tamanho. " : "") +
     "De " + rotuloExtenso(dados, de) + " para " + rotuloExtenso(dados, ate) + ": " +
     subiuMais.marca + " ganhou mais espaço (" + fmtPct(subiuMais.delta_pontos_percentuais) + " de participação), " +
     "enquanto " + caiuMais.marca + " foi quem mais perdeu (" + fmtPct(caiuMais.delta_pontos_percentuais) + ").";
@@ -2326,8 +2326,36 @@ function gerarConteudoRelatorio(){
     if (lb.length){
       var subiu = lb.slice().sort(function(a,b){ return b.delta_pontos_percentuais - a.delta_pontos_percentuais; })[0];
       var caiu = lb.slice().sort(function(a,b){ return a.delta_pontos_percentuais - b.delta_pontos_percentuais; })[0];
-      itens.push({ rotulo:"Maior alta", texto: subiu.marca + " (" + fmtPct(subiu.delta_pontos_percentuais) + ")" });
-      itens.push({ rotulo:"Maior queda", texto: caiu.marca + " (" + fmtPct(caiu.delta_pontos_percentuais) + ")" });
+      var entre = " (" + dados.periodos.rotulos[cmpResumo.de] + " → " + dados.periodos.rotulos[cmpResumo.ate] + ")";
+      itens.push({ rotulo:"Maior alta", texto: subiu.marca + ", " + fmtPct(subiu.delta_pontos_percentuais) + " de participação" + entre });
+      itens.push({ rotulo:"Maior queda", texto: caiu.marca + ", " + fmtPct(caiu.delta_pontos_percentuais) + entre });
+    }
+  }
+  // Segmento residencial (as duas primeiras faixas de potência): quem lidera.
+  var ordemFaixas = dados.faixas_ordem || [];
+  if (dados.periodos.faixa_composicao && ordemFaixas.length){
+    var espFaixa = especialistasNoIntervalo(dados, "faixa_composicao", chaves, somarPerfil(dados.periodos.faixa_perfil, chaves), false);
+    var resid = ordemFaixas.slice(0, 2).filter(function(f){ return (espFaixa[f] || []).length; }).map(function(f){
+      var l = espFaixa[f][0]; return f + ": " + l[0] + " (" + l[1].toFixed(1) + "%)";
+    });
+    if (resid.length) itens.push({ rotulo:"Residencial", texto: "lidera " + resid.join("; ") });
+  }
+  // Tecnologia: a categoria que mais mudou de participação entre os dois anos comparados.
+  var mix = dados.tecnologia_anual;
+  if (mix && /^\d{4}$/.test(cmpResumo.de) && /^\d{4}$/.test(cmpResumo.ate) && cmpResumo.de !== cmpResumo.ate){
+    var iDe = mix.periodos.indexOf(cmpResumo.de), iAte = mix.periodos.indexOf(cmpResumo.ate);
+    if (iDe >= 0 && iAte >= 0){
+      var tot = function(i){ return dados.tecnologias_ordem.reduce(function(a, c){ return a + mix.mw[c][i]; }, 0); };
+      var tDe = tot(iDe), tAte = tot(iAte);
+      var mudancas = dados.tecnologias_ordem.filter(function(c){ return c !== NAO_CLASSIFICADO; }).map(function(c){
+        var pDe = tDe > 0 ? mix.mw[c][iDe] / tDe * 100 : 0, pAte = tAte > 0 ? mix.mw[c][iAte] / tAte * 100 : 0;
+        return { c: c, pDe: pDe, pAte: pAte, d: pAte - pDe };
+      }).sort(function(a, b){ return Math.abs(b.d) - Math.abs(a.d); });
+      if (mudancas[0]){
+        var mv = mudancas[0];
+        itens.push({ rotulo: estado.campo === "modulo" ? "Tecnologia" : "Tipo de inversor",
+          texto: mv.c + " foi de " + mv.pDe.toFixed(0) + "% para " + mv.pAte.toFixed(0) + "% da potência (" + rotuloExtenso(dados, cmpResumo.de) + " → " + rotuloExtenso(dados, cmpResumo.ate) + ")" });
+      }
     }
   }
   itens.push({ rotulo:"Total instalado", texto: fmtMW(totalMw) + " em " + totalInst.toLocaleString("pt-BR") + " instalações no período" });
@@ -2349,7 +2377,7 @@ function montarRelatorio(){
   limpar(conteudo);
 
   var tituloCampo = estado.campo === "modulo" ? "Módulos" : "Inversores";
-  conteudo.appendChild(el("h2", { text: "Radar de Marcas Solares: " + tituloCampo }));
+  conteudo.appendChild(el("h2", { text: "Principais movimentos do mercado: " + tituloCampo }));
   var periodoTexto = emIntervalo(dados, r.de, r.ate);
   conteudo.appendChild(el("p", { class:"rel-meta",
     text: periodoTexto.charAt(0).toUpperCase() + periodoTexto.slice(1) + " · gerado em " + new Date().toLocaleDateString("pt-BR") }));
@@ -2369,30 +2397,13 @@ function montarRelatorio(){
 // O botao alterna rotulo (Gerar resumo / Fechar resumo) em vez de ter um botao
 // "Fechar" a parte -- mesmo elemento, mesma acao de abrir/fechar, sem dois jeitos
 // diferentes de fazer a mesma coisa.
-function relatorioAberto(){
-  return document.getElementById("botao-gerar-relatorio").getAttribute("aria-expanded") === "true";
-}
+function relatorioAberto(){ return true; }
 // Chamado de qualquer lugar que muda campo/intervalo -- se o resumo estiver
 // aberto, atualiza os numeros na hora, sem precisar fechar e abrir de novo.
 function atualizarRelatorioSeAberto(){
   if (relatorioAberto()) montarRelatorio();
 }
 function montarBotaoRelatorio(){
-  var botao = document.getElementById("botao-gerar-relatorio");
-  var secao = document.getElementById("relatorio");
-  botao.addEventListener("click", function(){
-    if (relatorioAberto()){
-      secao.hidden = true;
-      botao.setAttribute("aria-expanded", "false");
-      botao.textContent = "📄 Gerar resumo";
-    } else {
-      montarRelatorio();
-      secao.hidden = false;
-      botao.setAttribute("aria-expanded", "true");
-      botao.textContent = "Fechar resumo";
-      secao.scrollIntoView({ behavior:"smooth", block:"start" });
-    }
-  });
   document.getElementById("botao-copiar-relatorio").addEventListener("click", function(e){
     var conteudo = document.getElementById("relatorio-conteudo");
     var texto = conteudo.dataset.textoSimples || conteudo.textContent;
