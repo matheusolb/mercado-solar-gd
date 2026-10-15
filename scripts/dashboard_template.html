@@ -149,6 +149,8 @@
   .eixo-linha{stroke:var(--grade); stroke-width:1;}
   .fora-intervalo{fill:var(--superficie); fill-opacity:.62; pointer-events:none;}
   .rotulo-intervalo{font-weight:700; fill:var(--tinta);}
+  .destaques{margin:12px 0 4px; padding-left:18px; display:flex; flex-direction:column; gap:5px; font-size:13px; line-height:1.5; color:var(--tinta-2);}
+  .destaques b{color:var(--tinta);}
   .divisor-secao{padding-top:14px; border-top:1px solid var(--grade);}
   .divisor-secao h2{margin:0 0 2px;}
   .barra-realce{fill:none; stroke:var(--tinta); stroke-opacity:0; stroke-width:1.5; pointer-events:none; transition:stroke-opacity .1s;}
@@ -369,7 +371,8 @@
     <div class="chart-wrap" id="wrap-tec">
       <svg id="svg-tec" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <details class="table-toggle"><summary>Quem se sobressai em cada tecnologia (índice de especialização)</summary>
+    <ul class="destaques" id="destaques-tec"></ul>
+    <details class="table-toggle"><summary>Tabela completa: força relativa das marcas em cada tecnologia</summary>
       <p class="card-caption" id="explicacao-especialistas-tec" style="margin-top:8px;"></p>
       <div class="tabela-export" id="export-tec"></div>
       <div class="table-scroll"><table class="dados" id="tabela-tec"></table></div>
@@ -385,7 +388,8 @@
     <div class="chart-wrap" id="wrap-faixa">
       <svg id="svg-faixa" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <details class="table-toggle" open><summary>Quem se sobressai em cada faixa (índice de especialização)</summary>
+    <ul class="destaques" id="destaques-faixa"></ul>
+    <details class="table-toggle"><summary>Tabela completa: força relativa das marcas em cada faixa</summary>
       <p class="card-caption" id="explicacao-especialistas-faixa" style="margin-top:8px;"></p>
       <div class="tabela-export" id="export-faixa"></div>
       <div class="table-scroll"><table class="dados" id="tabela-faixa"></table></div>
@@ -401,7 +405,8 @@
     <div class="chart-wrap" id="wrap-distribuidora">
       <svg id="svg-distribuidora" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <details class="table-toggle"><summary>Quem se sobressai em cada distribuidora (índice de especialização)</summary>
+    <ul class="destaques" id="destaques-distribuidora"></ul>
+    <details class="table-toggle"><summary>Tabela completa: força relativa das marcas em cada distribuidora</summary>
       <p class="card-caption" id="explicacao-especialistas-distribuidora" style="margin-top:8px;"></p>
       <div class="tabela-export" id="export-distribuidora"></div>
       <div class="table-scroll"><table class="dados" id="tabela-distribuidora"></table></div>
@@ -438,7 +443,8 @@
     <div class="chart-wrap" id="wrap-classe">
       <svg id="svg-classe" viewBox="0 0 1000 240" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <details class="table-toggle"><summary>Quem se sobressai em cada classe (índice de especialização)</summary>
+    <ul class="destaques" id="destaques-classe"></ul>
+    <details class="table-toggle"><summary>Tabela completa: força relativa das marcas em cada classe</summary>
       <p class="card-caption" id="explicacao-especialistas-classe" style="margin-top:8px;"></p>
       <div class="tabela-export" id="export-classe"></div>
       <div class="table-scroll"><table class="dados" id="tabela-classe"></table></div>
@@ -454,7 +460,8 @@
     <div class="chart-wrap" id="wrap-tarifa">
       <svg id="svg-tarifa" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <details class="table-toggle"><summary>Quem se sobressai em cada grupo tarifário (índice de especialização)</summary>
+    <ul class="destaques" id="destaques-tarifa"></ul>
+    <details class="table-toggle"><summary>Tabela completa: força relativa das marcas em cada grupo tarifário</summary>
       <p class="card-caption" id="explicacao-especialistas-tarifa" style="margin-top:8px;"></p>
       <div class="tabela-export" id="export-tarifa"></div>
       <div class="table-scroll"><table class="dados" id="tabela-tarifa"></table></div>
@@ -1519,16 +1526,39 @@ function renderCategoria(cfg){
     })(l);
   });
 
+  // Leitura executiva, uma linha por categoria: peso no mercado, quem lidera e quem
+  // é bem mais forte ali do que no mercado todo (força relativa >= 1,3x, com pelo
+  // menos 3% de participação na categoria -- abaixo disso é ruído de nicho).
+  var listaDestaques = document.getElementById(cfg.idTabela.replace("tabela-", "destaques-"));
+  if (listaDestaques){
+    limpar(listaDestaques);
+    var base = porInstalacoes ? "das instalações" : "da potência";
+    linhas.forEach(function(l){
+      var esp = especialistas[l.categoria] || [];
+      if (!(l.total > 0) || !esp.length || l.categoria === cfg.rotuloOutros) return;
+      var lider = esp[0];
+      var forte = esp.filter(function(it){ return it[3] != null && it[3] >= 1.3 && it[1] >= 3; })
+        .sort(function(a, b){ return b[3] - a[3]; })[0];
+      var txt = " — " + (calc.totalGeral > 0 ? l.total / calc.totalGeral * 100 : 0).toFixed(0) + "% " + base +
+        ". Lidera " + lider[0] + ", com " + lider[1].toFixed(1) + "% de participação";
+      if (forte && forte[0] !== lider[0]) txt += "; " + forte[0] + " se destaca, " + forte[3].toFixed(1) + "× mais forte aqui que no mercado todo";
+      else if (forte) txt += ", " + forte[3].toFixed(1) + "× mais forte aqui que no mercado todo";
+      var li = el("li");
+      li.appendChild(el("b", { text: l.categoria }));
+      li.appendChild(document.createTextNode(txt + "."));
+      listaDestaques.appendChild(li);
+    });
+  }
+
   document.getElementById(cfg.idExplicacao).textContent =
-    "Índice de especialização = participação da marca na " + cfg.rotuloSingular + " ÷ participação no mercado total, na mesma " +
-    "métrica escolhida acima (MW ou instalações). Valores acima de 1 indicam concentração acima da média; 3×, por exemplo, " +
-    "indica presença três vezes maior que a média de mercado. A lista não se limita às marcas em destaque no gráfico " +
-    "— inclui especialistas de nicho. Calculado sobre o intervalo inteiro selecionado.";
+    "Força relativa (índice de especialização) = participação da marca na " + cfg.rotuloSingular + " ÷ participação dela no mercado todo, " +
+    "na mesma métrica escolhida acima (MW ou instalações). 1,0× é a média; 2,0× significa presença duas vezes maior que a média. " +
+    "Inclui marcas de nicho, não só as que têm cor no gráfico. Calculado sobre o intervalo inteiro selecionado.";
 
   var tabela = document.getElementById(cfg.idTabela);
   limpar(tabela);
   var thead = el("thead"); var trh = el("tr");
-  [cfg.rotuloColuna,"Marca","Share na categoria","Share geral","Índice"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
+  [cfg.rotuloColuna,"Marca","Participação na categoria","Participação no mercado","Força relativa"].forEach(function(h){ trh.appendChild(el("th", {text:h})); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody");
   var linhasCsv = [];
