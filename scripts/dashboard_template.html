@@ -147,6 +147,10 @@
   .eixo-txt{fill:var(--tinta-muda); font-size:10.5px;}
   .eixo-txt.forte{fill:var(--acento); font-weight:700;}
   .eixo-linha{stroke:var(--grade); stroke-width:1;}
+  .fora-intervalo{fill:var(--superficie); fill-opacity:.62; pointer-events:none;}
+  .rotulo-intervalo{font-weight:700; fill:var(--tinta);}
+  .divisor-secao{padding-top:14px; border-top:1px solid var(--grade);}
+  .divisor-secao h2{margin:0 0 2px;}
   .barra-realce{fill:none; stroke:var(--tinta); stroke-opacity:0; stroke-width:1.5; pointer-events:none; transition:stroke-opacity .1s;}
   .segmento{transition:opacity .1s;}
   .linha-zero{stroke:var(--eixo); stroke-width:1;}
@@ -252,13 +256,14 @@
       <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-de"></div>
       <span class="filtro-seta">→</span>
       <div class="filtro-grupo filtro-periodo" id="filtro-intervalo-ate"></div>
+      <div class="filtro-grupo" id="filtro-intervalo-atalhos" role="group" aria-label="Atalhos de intervalo"></div>
       <label class="filtro-rotulo" for="filtro-estado-global-select">Estado</label>
       <div class="filtro-grupo filtro-periodo" id="filtro-estado-global"></div>
       <label class="filtro-rotulo" for="filtro-categoria-metrica-select">Métrica</label>
       <div class="filtro-grupo" id="filtro-categoria-metrica"></div>
     </div>
   </div>
-  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
+  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e "Quem ganhou e quem perdeu espaço" compara o início com o fim. O painel abre no recorte recente; a Tendência mostra sempre o histórico completo, com o intervalo em destaque. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
 
   <div class="filtros">
     <button type="button" class="botao-ajuda" id="botao-gerar-relatorio" aria-expanded="false">📄 Gerar resumo</button>
@@ -286,29 +291,6 @@
     <details class="table-toggle"><summary>Ver dados em tabela</summary>
       <div class="table-scroll"><table class="dados" id="tabela-tendencia"></table></div>
     </details>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>Cada marca, individualmente</h2>
-      <p class="card-caption" id="legenda-multiplos-caption"></p>
-    </div>
-    <div id="grade-multiplos" class="grade-multiplos"></div>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>Comparar marcas específicas</h2>
-      <p class="card-caption" id="legenda-marca-especifica-caption"></p>
-    </div>
-    <div class="filtros">
-      <div class="filtro-grupo filtro-periodo" id="filtro-marca-especifica"></div>
-      <span class="filtro-aviso" id="aviso-marca-especifica"></span>
-    </div>
-    <div class="chips" id="chips-marca-especifica"></div>
-    <div class="chart-wrap" id="wrap-marca-especifica">
-      <svg id="svg-marca-especifica" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg>
-    </div>
   </section>
 
   <section class="card">
@@ -342,6 +324,21 @@
       <p class="card-caption" id="explicacao-nao-identificado" style="margin-top:8px;"></p>
       <div class="table-scroll"><table class="dados" id="tabela-nao-identificado"></table></div>
     </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comparar marcas específicas</h2>
+      <p class="card-caption" id="legenda-marca-especifica-caption"></p>
+    </div>
+    <div class="filtros">
+      <div class="filtro-grupo filtro-periodo" id="filtro-marca-especifica"></div>
+      <span class="filtro-aviso" id="aviso-marca-especifica"></span>
+    </div>
+    <div class="chips" id="chips-marca-especifica"></div>
+    <div class="chart-wrap" id="wrap-marca-especifica">
+      <svg id="svg-marca-especifica" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
   </section>
 
   <section class="card">
@@ -397,6 +394,43 @@
 
   <section class="card">
     <div class="card-head">
+      <h2>Comportamento por distribuidora</h2>
+      <p class="card-caption" id="legenda-distribuidora-caption"></p>
+    </div>
+    <div class="legend" id="legenda-distribuidora"></div>
+    <div class="chart-wrap" id="wrap-distribuidora">
+      <svg id="svg-distribuidora" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Quem se sobressai em cada distribuidora (índice de especialização)</summary>
+      <p class="card-caption" id="explicacao-especialistas-distribuidora" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-distribuidora"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-distribuidora"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento geográfico</h2>
+      <p class="card-caption" id="geo-caption"></p>
+    </div>
+    <div class="filtro-grupo" id="geo-breadcrumb" role="navigation" aria-label="Navegação geográfica"></div>
+    <div class="legend" id="geo-legend"></div>
+    <div class="chart-wrap" id="wrap-geo">
+      <svg id="svg-geo" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary id="geo-tabela-detalhe-titulo">Ver tabela completa</summary>
+      <div class="tabela-export" id="export-geo"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-geo"></table></div>
+    </details>
+  </section>
+
+  <div class="divisor-secao">
+    <h2>Aprofundamento</h2>
+    <p class="dash-sub">Visões complementares para análises específicas.</p>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
       <h2>Comportamento por classe de consumo</h2>
       <p class="card-caption" id="legenda-classe-caption"></p>
     </div>
@@ -429,34 +463,10 @@
 
   <section class="card">
     <div class="card-head">
-      <h2>Comportamento por distribuidora</h2>
-      <p class="card-caption" id="legenda-distribuidora-caption"></p>
+      <h2>Cada marca, individualmente</h2>
+      <p class="card-caption" id="legenda-multiplos-caption"></p>
     </div>
-    <div class="legend" id="legenda-distribuidora"></div>
-    <div class="chart-wrap" id="wrap-distribuidora">
-      <svg id="svg-distribuidora" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid meet"></svg>
-    </div>
-    <details class="table-toggle"><summary>Quem se sobressai em cada distribuidora (índice de especialização)</summary>
-      <p class="card-caption" id="explicacao-especialistas-distribuidora" style="margin-top:8px;"></p>
-      <div class="tabela-export" id="export-distribuidora"></div>
-      <div class="table-scroll"><table class="dados" id="tabela-distribuidora"></table></div>
-    </details>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>Comportamento geográfico</h2>
-      <p class="card-caption" id="geo-caption"></p>
-    </div>
-    <div class="filtro-grupo" id="geo-breadcrumb" role="navigation" aria-label="Navegação geográfica"></div>
-    <div class="legend" id="geo-legend"></div>
-    <div class="chart-wrap" id="wrap-geo">
-      <svg id="svg-geo" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet"></svg>
-    </div>
-    <details class="table-toggle" id="geo-tabela-detalhe" hidden><summary id="geo-tabela-detalhe-titulo">Ver tabela completa</summary>
-      <div class="tabela-export" id="export-geo"></div>
-      <div class="table-scroll"><table class="dados" id="tabela-geo"></table></div>
-    </details>
+    <div id="grade-multiplos" class="grade-multiplos"></div>
   </section>
 
   <footer class="dash-foot" id="rodape"></footer>
@@ -724,7 +734,9 @@ function inicializarEstadoPeriodos(){
   estado.marcasComparadas = [dados.marcas[0]];
   estado.estadoGlobal = "SP";
   var anos = dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; });
-  estado.intervaloDe = anos[0];
+  // Padrão: recorte recente (penúltimo ano -> ano atual). O histórico continua no
+  // atalho "Histórico" e na Tendência, que sempre mostra a série inteira.
+  estado.intervaloDe = anos[Math.max(0, anos.length-2)];
   estado.intervaloAte = anos[anos.length-1];
   // Drill-down geografico comeca no topo (Brasil > regioes) -- o Estado escolhido
   // no cabecalho e so usado quando o usuario pede pra ir direto ao municipio (ver
@@ -782,6 +794,19 @@ function montarFiltrosGlobais(){
   });
   montarSeletorAno(document.getElementById("filtro-intervalo-ate"), dados, estado.intervaloAte, function(v){
     estado.intervaloAte = v; if (estado.intervaloAte < estado.intervaloDe) estado.intervaloDe = v;
+    montarFiltrosGlobais(); rerenderTudoQueDependeDoIntervalo();
+  });
+  // Atalhos: o recorte recente é o padrão (pedido de negócio: posicionamento atual
+  // em primeiro plano); histórico e último ano fechado ficam a um clique.
+  var anos = dados.periodos.ordem.filter(function(k){ return k !== "ultimos_12m"; });
+  var ult = anos[anos.length-1], pen = anos[anos.length-2] || ult;
+  montarFiltro(document.getElementById("filtro-intervalo-atalhos"), [
+    { label:"Recente", valor: pen + "|" + ult },
+    { label:"Último ano fechado", valor: pen + "|" + pen },
+    { label:"Histórico", valor: anos[0] + "|" + ult },
+  ], estado.intervaloDe + "|" + estado.intervaloAte, function(v){
+    var partes = v.split("|");
+    estado.intervaloDe = partes[0]; estado.intervaloAte = partes[1];
     montarFiltrosGlobais(); rerenderTudoQueDependeDoIntervalo();
   });
   montarSeletorEstado(document.getElementById("filtro-estado-global"), dados, estado.estadoGlobal, function(v){
@@ -954,10 +979,10 @@ function renderTendencia(){
   var serieBruta = estado.granularidade === "mensal" ? serieMensalDin
                   : estado.granularidade === "trimestral" ? agregarPorChave(serieMensalDin, function(p){ return mesParaTrimestre(p.periodo); })
                   : agregarAnual(serieMensalDin);
-  var periodos = serieBruta.filter(function(p){
-    var ano = p.periodo.slice(0,4);
-    return ano >= estado.intervaloDe && ano <= estado.intervaloAte;
-  });
+  // Série inteira sempre (track record); o intervalo selecionado fica em destaque e
+  // o resto esmaecido, em vez de cortado.
+  var periodos = serieBruta;
+  function noIntervalo(p){ var ano = p.periodo.slice(0,4); return ano >= estado.intervaloDe && ano <= estado.intervaloAte; }
 
   renderLegenda(document.getElementById("legenda-tendencia"), marcas);
   var destaques = resumoDestaques(dados);
@@ -1001,6 +1026,14 @@ function renderTendencia(){
     var d = caminhoMonotono(topo, true) + " " + caminhoMonotono(baseInvertida, false) + " Z";
     svg.appendChild(svgEl("path", { class:"segmento", d:d, fill:CORES[s] }));
   });
+
+  var iIni = -1, iFim = -1;
+  periodos.forEach(function(p, i){ if (noIntervalo(p)){ if (iIni < 0) iIni = i; iFim = i; } });
+  if (iIni > 0) svg.appendChild(svgEl("rect", { class:"fora-intervalo", x:ML, y:MT, width:iIni*largBanda, height:alturaGrafico }));
+  if (iFim >= 0 && iFim < n-1) svg.appendChild(svgEl("rect", { class:"fora-intervalo", x:ML+(iFim+1)*largBanda, y:MT, width:(n-1-iFim)*largBanda, height:alturaGrafico }));
+  if (iIni >= 0 && (iIni > 0 || iFim < n-1)){
+    svg.appendChild(svgEl("text", { class:"eixo-txt rotulo-intervalo", x:ML+iIni*largBanda+4, y:MT+11, text:"Intervalo selecionado" }));
+  }
 
   var strideRotulo = Math.max(1, Math.ceil(n / 14));
   periodos.forEach(function(p, i){
