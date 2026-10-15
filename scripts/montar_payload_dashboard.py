@@ -20,6 +20,7 @@ import pandas as pd
 
 import logica_mercado as lm
 import marca_utils as mu
+import montar_ranking_modelos as mrm
 
 PASTA_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 PASTA_PROJETO = os.path.dirname(PASTA_SCRIPTS)
@@ -347,6 +348,19 @@ def totais_uf_instalacoes(df: pd.DataFrame, meses: list[str], marcas_grafico: li
     return {uf: {m: int(v) for m, v in linha.items()} for uf, linha in agrupado.iterrows()}
 
 
+def mix_anual(df: pd.DataFrame, ancora: pd.Period, categorias: list[str]) -> dict:
+    """Composição por tecnologia/tipo de cada ano, até o último mês completo -- alimenta
+    o gráfico de evolução (o ano corrente vem parcial, até a âncora)."""
+    sub = df[df["ano_mes"] <= str(ancora)]
+    anos = sorted(int(a) for a in sub["ano"].unique())
+    def pivot(coluna, fator, tipo):
+        t = sub.pivot_table(index="ano", columns="tecnologia", values=coluna, aggfunc="sum", observed=True)
+        t = t.reindex(index=anos, columns=categorias, fill_value=0).fillna(0)
+        return {c: [tipo(v / fator) for v in t[c]] for c in categorias}
+    return {"anos": anos, "ano_parcial_ate": str(ancora),
+            "mw": pivot("soma_kw", 1000, lambda v: round(v, 3)), "inst": pivot("qtd_instalacoes", 1, int)}
+
+
 def montar_payload_campo(campo: str) -> dict:
     df = carregar_agregado(campo)
 
@@ -397,6 +411,8 @@ def montar_payload_campo(campo: str) -> dict:
     classe_mw, classe_inst, classe_perfil, classe_especialistas, classe_especialistas_inst = {}, {}, {}, {}, {}
     tarifa_mw, tarifa_inst, tarifa_perfil, tarifa_especialistas, tarifa_especialistas_inst = {}, {}, {}, {}, {}
     dist_mw, dist_inst, dist_perfil, dist_especialistas, dist_especialistas_inst = {}, {}, {}, {}, {}
+    tec_mw, tec_inst, tec_perfil, tec_especialistas, tec_especialistas_inst = {}, {}, {}, {}, {}
+    tecnologias_ordem = [t for t in mrm.CONFIG[campo]["ordem"] if t in set(df["tecnologia"])]
     for chave, meses in periodos_meses.items():
         totais_mw[chave] = round(df[df["ano_mes"].isin(meses)]["soma_kw"].sum() / 1000, 3)
         totais_inst[chave] = int(df[df["ano_mes"].isin(meses)]["qtd_instalacoes"].sum())
@@ -431,6 +447,12 @@ def montar_payload_campo(campo: str) -> dict:
         dist_especialistas[chave] = especialistas_por_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem)
         dist_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem, coluna_valor="qtd_instalacoes")
 
+        tec_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "tecnologia", tecnologias_ordem)
+        tec_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "tecnologia", tecnologias_ordem)
+        tec_perfil[chave] = perfil_categoria(df, meses, "tecnologia", tecnologias_ordem)
+        tec_especialistas[chave] = especialistas_por_categoria(df, meses, "tecnologia", tecnologias_ordem)
+        tec_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "tecnologia", tecnologias_ordem, coluna_valor="qtd_instalacoes")
+
     return {
         "marcas": marcas_grafico,
         "marcas_cor": marcas_grafico[:TOP_N_GRAFICO_COR] + [mu.OUTROS, mu.NAO_INFORMADO],
@@ -446,6 +468,8 @@ def montar_payload_campo(campo: str) -> dict:
         "classes_ordem": classes_ordem,
         "tarifas_ordem": tarifas_ordem,
         "distribuidoras_ordem": distribuidoras_ordem,
+        "tecnologias_ordem": tecnologias_ordem,
+        "tecnologia_anual": mix_anual(df, ancora, tecnologias_ordem),
         "uf_regiao": mapa_uf_regiao(df),
         "periodos": {
             "ordem": ordem,
@@ -479,6 +503,11 @@ def montar_payload_campo(campo: str) -> dict:
             "distribuidora_perfil": dist_perfil,
             "distribuidora_especialistas": dist_especialistas,
             "distribuidora_especialistas_inst": dist_especialistas_inst,
+            "tecnologia_mw": tec_mw,
+            "tecnologia_inst": tec_inst,
+            "tecnologia_perfil": tec_perfil,
+            "tecnologia_especialistas": tec_especialistas,
+            "tecnologia_especialistas_inst": tec_especialistas_inst,
         },
     }
 

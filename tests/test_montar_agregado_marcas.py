@@ -20,6 +20,7 @@ def _df_fabricado():
         "classe_consumo": ["Residencial", "Residencial", "Comercial"],
         "grupo_tarifario": ["B1", "B1", "B1"],
         "distribuidora": ["ENEL SP", "ENEL SP", "COPEL"],
+        "tecnologia": ["Mono PERC", "N-type TOPCon", "Não classificado"],
         "_marca": ["Canadian Solar", "Jinko Solar", "Outros"],
         "MdaPotenciaInstalada": [5.4, 8.2, 3.0],
     })

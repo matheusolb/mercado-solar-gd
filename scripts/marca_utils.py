@@ -44,6 +44,7 @@ COLUNAS_AGRUPAMENTO_AGREGADO = [
     "ano_mes", "ano", "mes", "trimestre", "ano_trimestre",
     "regiao", "SigUF", "CodUFibge", "CodMunicipioIbge", "NomMunicipio",
     "faixa_potencia", "classe_consumo", "grupo_tarifario", "distribuidora",
+    "tecnologia",  # módulo: tecnologia de célula; inversor: tipo (string/micro/híbrido)
 ]
 COLUNAS_METRICAS_AGREGADO = ["marca", "soma_kw", "qtd_instalacoes", "kw_medio_instalacao"]
 COLUNAS_AGREGADO = COLUNAS_AGRUPAMENTO_AGREGADO + COLUNAS_METRICAS_AGREGADO

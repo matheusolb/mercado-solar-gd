@@ -14,6 +14,7 @@ import os
 import pandas as pd
 
 import marca_utils as mu
+import montar_ranking_modelos as mrm
 
 PASTA_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 PASTA_PROJETO = os.path.dirname(PASTA_SCRIPTS)
@@ -40,7 +41,7 @@ def resolver_arquivo(padrao: str) -> str:
 def carregar_base_tecnica() -> pd.DataFrame:
     arq = resolver_arquivo("empreendimento-gd-informacoes-tecnicas-fotovoltaica*.parquet")
     print(f"Lendo base tecnica: {arq}")
-    colunas = mu.COLUNAS_TECNICAS_ANEEL + ["NomModeloModulo"]
+    colunas = mu.COLUNAS_TECNICAS_ANEEL + ["NomModeloModulo", "NomModeloInversor"]
     df = pd.read_parquet(arq, columns=colunas)
     mu.validar_colunas(df, colunas, arq)
     print(f"  {len(df):,} linhas")
@@ -179,7 +180,8 @@ def main():
         print("=" * 80)
         print(f"Agregando: {campo}")
         marca = aplicar_marca(unido, campo)
-        unido_campo = unido.assign(_marca=marca)
+        tecnologia = mrm.categoria_por_linha(campo, marca, unido[mrm.CONFIG[campo]["coluna_modelo"]])
+        unido_campo = unido.assign(_marca=marca, tecnologia=tecnologia)
         agregado = agregar_por_marca(unido_campo, "_marca")
         checar_conservacao(agregado, unido, campo)
 

@@ -20,7 +20,7 @@ def test_montar_payload_campo_smoke(tmp_path, monkeypatch):
             "regiao": "Sudeste", "SigUF": "SP", "CodUFibge": 35,
             "CodMunicipioIbge": 3550308, "NomMunicipio": "São Paulo",
             "faixa_potencia": "≤5 kW", "classe_consumo": "Residencial",
-            "grupo_tarifario": "B1", "distribuidora": "ENEL SP",
+            "grupo_tarifario": "B1", "distribuidora": "ENEL SP", "tecnologia": "Mono PERC",
             "marca": "Canadian Solar", "soma_kw": 10.0 + i, "qtd_instalacoes": 2, "kw_medio_instalacao": 5.0,
         })
     df = pd.DataFrame(linhas)
@@ -36,3 +36,7 @@ def test_montar_payload_campo_smoke(tmp_path, monkeypatch):
     # determinística independente de onde a ancora (ultimo mes completo) cair.
     soma_2025 = sum(10.0 + i for i, pm in enumerate(periodos) if pm.startswith("2025"))
     assert payload["periodos"]["totais_mw"]["2025"] == pytest.approx(soma_2025 / 1000, rel=1e-6)
+
+    anual = payload["tecnologia_anual"]
+    assert payload["tecnologias_ordem"] == ["Mono PERC"]
+    assert anual["mw"]["Mono PERC"][anual["anos"].index(2025)] == pytest.approx(soma_2025 / 1000, rel=1e-6)

@@ -37,6 +37,7 @@ CONFIG = {
         "coluna_modelo": "NomModeloModulo",
         "regras": "tecnologia_modelo_modulo.csv",
         "rotulo": "tecnologia",
+        "ordem": ["Policristalino", "Mono PERC", "N-type TOPCon", "HJT", "BC", NAO_CLASSIFICADO],
         "familia": lambda m: re.sub(r"(?<!\d)[3-7]\d{2}(?:WP|W)?(?!\d)", "", m),  # potência 300-799 W
         "ratings": {"PV-Tech ModuleTech": "pvtech_bankability", "BloombergNEF Tier 1": "bnef_tier1"},
     },
@@ -44,6 +45,7 @@ CONFIG = {
         "coluna_modelo": "NomModeloInversor",
         "regras": "tipo_modelo_inversor.csv",
         "rotulo": "tipo",
+        "ordem": ["String", "Microinversor", "Híbrido", NAO_CLASSIFICADO],
         "familia": lambda m: re.sub(r"\d", "", m),
         "ratings": {"PV-Tech InverterTech": "pvtech_bankability", "Wood Mackenzie Inverter Ranking": "woodmac_ranking"},
     },
@@ -68,6 +70,18 @@ def classificar(df: pd.DataFrame, regras: pd.DataFrame, rotulo: str) -> pd.Serie
         livre &= ~m
     pares["cat"] = cat
     return df[["marca", "modelo"]].merge(pares, on=["marca", "modelo"], how="left")["cat"].set_axis(df.index)
+
+
+def categoria_por_linha(campo: str, marca: pd.Series, modelo_bruto: pd.Series) -> pd.Series:
+    """Tecnologia (módulo) ou tipo (inversor) de cada instalação -- usado pela agregação do dashboard."""
+    cfg = CONFIG[campo]
+    texto = modelo_bruto.astype(str)
+    unicos = texto.unique()
+    modelo = texto.map(dict(zip(unicos, map(mu.normalizar_modelo, unicos))))
+    regras = pd.read_csv(os.path.join(PASTA_SCRIPTS, cfg["regras"]), dtype=str)
+    cat = classificar(pd.DataFrame({"marca": marca, "modelo": modelo}), regras, cfg["rotulo"])
+    cat[modelo.isin(SEM_MODELO) | (modelo.str.len() < 4)] = NAO_CLASSIFICADO
+    return cat
 
 
 def motivo_sem_classificacao(nc: pd.DataFrame, marcas_com_regra: set) -> pd.Series:

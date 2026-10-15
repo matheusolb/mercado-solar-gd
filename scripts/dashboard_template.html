@@ -258,7 +258,7 @@
       <div class="filtro-grupo" id="filtro-categoria-metrica"></div>
     </div>
   </div>
-  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
+  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e Tendência e "Quem ganhou e quem perdeu espaço" comparam o início com o fim. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
 
   <div class="filtros">
     <button type="button" class="botao-ajuda" id="botao-gerar-relatorio" aria-expanded="false">📄 Gerar resumo</button>
@@ -341,6 +341,38 @@
     <details class="table-toggle"><summary>O que tem dentro de "Não identificado"?</summary>
       <p class="card-caption" id="explicacao-nao-identificado" style="margin-top:8px;"></p>
       <div class="table-scroll"><table class="dados" id="tabela-nao-identificado"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 id="titulo-tec-anual">Tecnologia ao longo do tempo</h2>
+      <p class="card-caption" id="legenda-tec-anual-caption"></p>
+    </div>
+    <div class="legend" id="legenda-tec-anual"></div>
+    <div class="chart-wrap" id="wrap-tec-anual">
+      <svg id="svg-tec-anual" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Ver dados em tabela</summary>
+      <p class="card-caption" id="explicacao-tec-anual" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-tec-anual"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-tec-anual"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 id="titulo-tec">Comportamento por tecnologia</h2>
+      <p class="card-caption" id="legenda-tec-caption"></p>
+    </div>
+    <div class="legend" id="legenda-tec"></div>
+    <div class="chart-wrap" id="wrap-tec">
+      <svg id="svg-tec" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <details class="table-toggle"><summary>Quem se sobressai em cada tecnologia (índice de especialização)</summary>
+      <p class="card-caption" id="explicacao-especialistas-tec" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-tec"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-tec"></table></div>
     </details>
   </section>
 
@@ -707,7 +739,7 @@ function montarFiltrosGlobais(){
 
   function rerenderTudoQueDependeDoIntervalo(){
     renderTendencia(); renderMarcaEspecifica(); renderLeaderboard();
-    renderRanking(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
+    renderRanking(); renderTecnologia(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
     atualizarRelatorioSeAberto();
   }
   montarSeletorAno(document.getElementById("filtro-intervalo-de"), dados, estado.intervaloDe, function(v){
@@ -1498,6 +1530,116 @@ function renderDistribuidora(){
   });
 }
 
+var NAO_CLASSIFICADO = "Não classificado";
+
+function renderTecnologia(){
+  var dados = DADOS.campos[estado.campo];
+  if (!dados.tecnologias_ordem) return;
+  var ehModulo = estado.campo === "modulo";
+  document.getElementById("titulo-tec-anual").textContent = ehModulo ? "Tecnologia de célula ao longo do tempo" : "Tipo de inversor ao longo do tempo";
+  document.getElementById("titulo-tec").textContent = ehModulo ? "Comportamento por tecnologia de célula" : "Comportamento por tipo de inversor";
+  renderTecnologiaAnual(dados, ehModulo);
+  renderCategoria({
+    chaveOrdem:"tecnologias_ordem", chaveMw:"tecnologia_mw", chaveInst:"tecnologia_inst", chavePerfil:"tecnologia_perfil", chaveEspecialistas:"tecnologia_especialistas", chaveEspecialistasInst:"tecnologia_especialistas_inst",
+    idLegenda:"legenda-tec", idCaption:"legenda-tec-caption", idSvg:"svg-tec",
+    idExplicacao:"explicacao-especialistas-tec", idTabela:"tabela-tec", idExport:"export-tec", rotuloColuna: ehModulo ? "Tecnologia" : "Tipo",
+    artigo:"a", rotuloSingular: ehModulo ? "tecnologia" : "categoria de inversor", rotuloPlural: ehModulo ? "Tecnologias" : "Tipos", duasPontas:false,
+    rotuloOutros: NAO_CLASSIFICADO,
+  });
+}
+
+// Mix ano a ano, Brasil inteiro, sempre todos os anos -- não segue o filtro de
+// intervalo de propósito: a leitura aqui é a transição de geração (poli -> PERC ->
+// TOPCon), que só aparece com a série inteira. Cor: tons do acento do mais antigo
+// pro mais novo (as categorias têm ordem), sem reaproveitar as cores de marca.
+function renderTecnologiaAnual(dados, ehModulo){
+  var mix = dados.tecnologia_anual, cats = dados.tecnologias_ordem, anos = mix.anos;
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var serie = porInstalacoes ? mix.inst : mix.mw;
+  var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR") + " instalações"; } : fmtMW;
+  var reais = cats.filter(function(c){ return c !== NAO_CLASSIFICADO; });
+  function cor(c){ return c === NAO_CLASSIFICADO ? "var(--outros)" : "var(--acento)"; }
+  function opacidade(c){
+    if (c === NAO_CLASSIFICADO) return 1;
+    return reais.length > 1 ? 0.4 + 0.6 * reais.indexOf(c) / (reais.length - 1) : 1;
+  }
+  var totais = anos.map(function(_, i){ return cats.reduce(function(a, c){ return a + serie[c][i]; }, 0); });
+  function pct(c, i){ return totais[i] > 0 ? serie[c][i] / totais[i] * 100 : 0; }
+  var anoParcial = parseInt(mix.ano_parcial_ate.slice(0, 4), 10), mesParcial = parseInt(mix.ano_parcial_ate.slice(5, 7), 10);
+  var temParcial = mesParcial < 12 && anos[anos.length - 1] === anoParcial;
+  function rotuloAno(a){ return temParcial && a === anoParcial ? a + "*" : String(a); }
+
+  var leg = document.getElementById("legenda-tec-anual");
+  limpar(leg);
+  cats.forEach(function(c){
+    var item = el("div", { class:"legend-item" });
+    var sw = el("span", { class:"legend-swatch" }); sw.style.background = cor(c); sw.style.opacity = opacidade(c);
+    item.appendChild(sw); item.appendChild(el("span", { text: c }));
+    leg.appendChild(item);
+  });
+
+  var svg = document.getElementById("svg-tec-anual");
+  limpar(svg);
+  var W = 1000, H = 280, ML = 44, MR = 10, MT = 10, MB = 28;
+  var plotH = H - MT - MB, slot = (W - ML - MR) / Math.max(anos.length, 1), colW = Math.min(slot * 0.62, 90);
+  [0, 25, 50, 75, 100].forEach(function(t){
+    var y = MT + plotH - t / 100 * plotH;
+    svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-6, y:y+3, "text-anchor":"end", text: t + "%" }));
+  });
+  anos.forEach(function(a, i){
+    var x = ML + i * slot + (slot - colW) / 2, yAcum = MT + plotH;
+    cats.forEach(function(c){
+      var h = pct(c, i) / 100 * plotH;
+      if (h > 0.5){
+        svg.appendChild(svgEl("rect", { class:"segmento", x:x, y:yAcum-h+0.5, width:colW, height:Math.max(h-1, 0.5), fill:cor(c), "fill-opacity":opacidade(c) }));
+      }
+      yAcum -= h;
+    });
+    svg.appendChild(svgEl("text", { class:"eixo-txt", x:x+colW/2, y:H-8, "text-anchor":"middle", text: rotuloAno(a) }));
+    var hit = svgEl("rect", { class:"hitzone", x:ML + i * slot, y:MT, width:slot, height:plotH, tabindex:"0", role:"img", "aria-label": String(a) });
+    svg.appendChild(hit);
+    anexarHover(hit, function(mx, my){
+      var tips = cats.slice().reverse().map(function(c){
+        return { nome:c, cor:cor(c), valor: pct(c, i).toFixed(1) + "% · " + fmtValor(serie[c][i]) };
+      });
+      mostrarTooltip(mx, my, rotuloAno(a) + (temParcial && a === anoParcial ? " (até " + mix.ano_parcial_ate + ")" : ""), tips, fmtValor(totais[i]));
+    });
+  });
+
+  var iF = anos.length - 1, i0 = 0;
+  function lider(i){ return reais.slice().sort(function(x, y){ return serie[y][i] - serie[x][i]; })[0]; }
+  var lf = lider(iF), l0 = lider(i0), base = porInstalacoes ? "das instalações" : "da potência instalada";
+  var texto = "Em " + anos[iF] + (temParcial ? " (até " + mix.ano_parcial_ate + ")" : "") + ", " + lf + " responde por " +
+    pct(lf, iF).toFixed(0) + "% " + base + (l0 !== lf ? "; em " + anos[i0] + ", a maior era " + l0 + " (" + pct(l0, i0).toFixed(0) + "%)"
+      : " (" + pct(lf, i0).toFixed(0) + "% em " + anos[i0] + ")") + ". " +
+    pct(NAO_CLASSIFICADO, iF).toFixed(0) + "% de " + anos[iF] + " ainda está sem classificação. Brasil inteiro, ano a ano — este gráfico não segue o filtro de intervalo.";
+  document.getElementById("legenda-tec-anual-caption").textContent = texto;
+
+  document.getElementById("explicacao-tec-anual").textContent = (ehModulo
+    ? "A tecnologia vem do código do modelo do módulo, por regras por fabricante (datasheets e padrão de nomenclatura). Para revendas que não informam a tecnologia no código, ela é inferida pela potência dentro do formato (em 144 meias-células, o PERC chega a ~560 W; acima de 570 W é N-type). "
+    : "O tipo vem do código do modelo do inversor, por regras por fabricante. Inversores que aceitam bateria mas são vendidos como on-grid (ex.: Huawei L1, WEG SIW300H) contam como string — a ANEEL não registra se a bateria foi instalada. ") +
+    "\"Não classificado\" junta modelo vazio, marca não identificada e modelos ainda não mapeados." +
+    (temParcial ? " * " + anoParcial + " parcial, até " + mix.ano_parcial_ate + "." : "");
+
+  var tabela = document.getElementById("tabela-tec-anual");
+  limpar(tabela);
+  var thead = el("thead"), trh = el("tr");
+  ["Ano"].concat(cats).forEach(function(h){ trh.appendChild(el("th", { text:h })); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody"), linhasCsv = [];
+  anos.forEach(function(a, i){
+    var tr = el("tr");
+    tr.appendChild(el("td", { text: rotuloAno(a) }));
+    cats.forEach(function(c){ tr.appendChild(el("td", { text: pct(c, i).toFixed(1) + "%" })); });
+    tbody.appendChild(tr);
+    linhasCsv.push([rotuloAno(a)].concat(cats.map(function(c){ return pct(c, i).toFixed(2); })));
+  });
+  tabela.appendChild(tbody);
+  montarBotaoCsv("export-tec-anual", "tecnologia_anual_" + estado.campo + "_" + (porInstalacoes ? "instalacoes" : "mw") + ".csv",
+    ["Ano"].concat(cats.map(function(c){ return c + " %"; })), linhasCsv);
+}
+
 // Motor generico por tras do drill-down Brasil > Regiao > Estado > Municipio --
 // as tres primeiras camadas usam o mesmo top-10 global (marcas_cor); municipio usa
 // o top-10 local por UF (marcas_por_uf), exatamente como antes -- isso ja era
@@ -1893,6 +2035,7 @@ function renderTudo(){
   renderMarcaEspecifica();
   renderLeaderboard();
   renderRanking();
+  renderTecnologia();
   renderFaixa();
   renderClasse();
   renderTarifa();
@@ -2122,7 +2265,7 @@ function montarFiltroCategoriaMetrica(){
     estado.categoriaMetrica = v;
     montarFiltroCategoriaMetrica();
     renderTendencia(); renderMarcaEspecifica(); renderRanking(); renderLeaderboard(); renderGeografia();
-    renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora();
+    renderTecnologia(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora();
   });
 }
 montarFiltroCategoriaMetrica();
