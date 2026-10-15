@@ -30,3 +30,6 @@ scripts/gerar_powerbi.py
 # ja embute o mesmo JSON). Regenerar com scripts/gerar_dashboard_html.py.
 dashboard/dashboard_dados.json
 dashboard/dashboard_fragment.html
+
+# ranking de modelos traz rating por marca (dados/referencia, nao versionado)
+dados/processados/ranking_modelos_*.csv

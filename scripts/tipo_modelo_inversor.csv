@@ -1,0 +1,43 @@
+marca,padrao,tipo,confianca,fonte
+*,MICRO,Microinversor,confirmado,texto do modelo diz micro
+*,HIBRID|HYBRID,Híbrido,confirmado,texto do modelo diz híbrido
+Growatt,XH(?!V)|SPH|SPF|SPA\d,Híbrido,confirmado,linhas SPH/SPA e sufixo XH (MIN TL-XH)
+Growatt,NEO,Microinversor,confirmado,NEO = micro
+Growatt,\d,String,confirmado,MIN/MID/MAX/MAC/MIC/MTL on-grid
+Sungrow,^SH\d,Híbrido,confirmado,SH = hybrid
+Sungrow,^SG|\d,String,confirmado,SG = string on-grid
+Deye,"SUNM\d|SUN\d{3,4}G\d",Microinversor,confirmado,SUN-M e SUN2000G3 = micro
+Deye,KSG|SG\d\dLP,Híbrido,confirmado,SUN-xK-SG04LP = hybrid
+Deye,\d,String,confirmado,SUN-xK-G = string on-grid
+Solis (Ginlong),RHI|EH\dP|S\dEH,Híbrido,confirmado,RHI/S6-EH = hybrid
+Solis (Ginlong),\d,String,confirmado,S5/S6-GR/GC e Solis-xK = string on-grid
+Huawei,\d,String,confirmado,SUN2000-KTL on-grid (L1/LC0/M1 aceitam bateria LUNA2000 mas contam como string)
+WEG,SIW,String,confirmado,catálogo WEG SIW inversores string (SIW300H aceita armazenamento)
+SAJ,^H[12]\d|^AS\d,Híbrido,inferido,H1/H2/AS = hybrid
+SAJ,^M2,Microinversor,inferido,M2-xK-S4 = micro
+SAJ,\d,String,confirmado,R5/R6/C6/Suntrio/Sununo on-grid
+Sofar Solar,HYD|ME3000,Híbrido,confirmado,HYD/ME3000 = hybrid/storage
+Sofar Solar,\d,String,confirmado,KTLM/KTLX/TL on-grid
+Solplanet,ASW\d+K?H,Híbrido,inferido,ASW-H = hybrid
+Solplanet,ASW,String,confirmado,ASW-S/LT/UT on-grid
+Fronius,GEN24,Híbrido,confirmado,Primo/Symo GEN24 = hybrid
+Fronius,PRIMO|SYMO|ECO|GALVO|IG,String,confirmado,Primo/Symo/Eco on-grid
+Goodwe,[0-9KD](?:ES|EM|ET|EH|BH|BT),Híbrido,confirmado,séries ES/EM/ET/EH/BH/BT = hybrid
+Goodwe,\d,String,confirmado,DNS/MS/XS/MT/HT/DT/SDT on-grid
+PHB,[0-9KD](?:ES|EM|ET|EH|BH|BT),Híbrido,inferido,mesma nomenclatura da Goodwe
+PHB,\d,String,inferido,mesma nomenclatura da Goodwe (NS/MS/MT/DT)
+Hoymiles,\d,Microinversor,confirmado,MI/HM/HMS/HMT = micro
+APsystems,\d,Microinversor,confirmado,YC/QS1/DS3/QT2 = micro
+Renovigi,RENO\d+K|\d+K,String,inferido,RENO-xK on-grid
+Canadian Solar,CSI|KTL,String,confirmado,CSI-xK on-grid
+Intelbras,IONS\d+KMH,Híbrido,confirmado,IONS 6K M Híbrido
+Intelbras,EGT|IONS,String,confirmado,EGT e IONS-xK M5 on-grid
+Bel Energy,"BEL\d{3,4}G\d",Microinversor,inferido,BEL2000G3 = mesmo código do Deye SUN2000G3 micro
+Bel Energy,\d,String,inferido,BEL-xK-G = mesmo código do Deye string
+Bedin Solar,\d,String,inferido,BS-xK-G = mesmo código do Deye string
+Renac,^N\d|ESC,Híbrido,inferido,N1/N3 = hybrid
+Renac,NAC|R\d,String,confirmado,NAC/R1/R3 on-grid
+ABB/FIMER,REACT,Híbrido,confirmado,REACT = storage
+ABB/FIMER,PVS|TRIO|UNO|PRO,String,confirmado,PVS/TRIO/UNO on-grid
+SolarEdge,SE\d,String,confirmado,SE = string com otimizador
+Chint,\d,String,inferido,CPS on-grid
