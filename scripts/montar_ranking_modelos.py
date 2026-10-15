@@ -22,7 +22,6 @@ from __future__ import annotations
 import os
 import re
 import sys
-import unicodedata
 
 import pandas as pd
 
@@ -49,12 +48,6 @@ CONFIG = {
         "ratings": {"PV-Tech InverterTech": "pvtech_bankability", "Wood Mackenzie Inverter Ranking": "woodmac_ranking"},
     },
 }
-
-
-def normalizar_modelo(texto) -> str:
-    s = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode().upper()
-    s = re.sub(r"[^A-Z0-9]", "", s)
-    return re.sub(r"^\d{3,4}(?=[A-Z])", "", s)  # código de registro ANEEL colado na frente
 
 
 def chave_marca(nome: str) -> str:
@@ -111,9 +104,15 @@ def rodar(campo: str, df: pd.DataFrame) -> None:
     bruto = df[cfg["coluna_modelo"]].astype(str)
     unicos = bruto.unique()
     v["modelo_bruto"] = bruto
-    v["modelo"] = bruto.map(dict(zip(unicos, map(normalizar_modelo, unicos))))
+    v["modelo"] = bruto.map(dict(zip(unicos, map(mu.normalizar_modelo, unicos))))
     v["sem_modelo"] = v["modelo"].isin(SEM_MODELO) | (v["modelo"].str.len() < 4)
     v["familia"] = v["modelo"].map(cfg["familia"])
+    if campo == "modulo":
+        # mesmo critério da agregação: marca vazia/ilegível é recuperada pelo código do modelo.
+        # fabricante_pelo_modelo também mostra a fábrica quando a marca registrada é revenda.
+        v["fabricante_pelo_modelo"] = mu.fabricante_pelo_modelo(bruto)
+        sem_marca = v["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO]) & v["fabricante_pelo_modelo"].notna()
+        v.loc[sem_marca, "marca"] = v.loc[sem_marca, "fabricante_pelo_modelo"]
     regras = pd.read_csv(os.path.join(PASTA_SCRIPTS, cfg["regras"]), dtype=str)
     v[rotulo] = classificar(v, regras, rotulo)
     v.loc[v["sem_modelo"], rotulo] = NAO_CLASSIFICADO
@@ -137,6 +136,9 @@ def rodar(campo: str, df: pd.DataFrame) -> None:
     top = ok.set_index(["marca", "familia"]).loc[g.index]
     g[rotulo] = top.groupby(level=[0, 1]).apply(lambda x: x.groupby(rotulo)["MdaPotenciaInstalada"].sum().idxmax())
     g["exemplo_bruto"] = top.groupby(level=[0, 1])["modelo_bruto"].agg(lambda s: s.value_counts().index[0])
+    if "fabricante_pelo_modelo" in top:
+        g["fabricante_pelo_modelo"] = top.groupby(level=[0, 1])["fabricante_pelo_modelo"].agg(
+            lambda s: s.value_counts().index[0] if s.notna().any() else "")
     g["pct_do_total_kw"] = (g["soma_kw"] / tot * 100).round(3)
     out = g.reset_index()
     out["chave"] = out["marca"].map(chave_marca)

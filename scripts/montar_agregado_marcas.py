@@ -40,8 +40,9 @@ def resolver_arquivo(padrao: str) -> str:
 def carregar_base_tecnica() -> pd.DataFrame:
     arq = resolver_arquivo("empreendimento-gd-informacoes-tecnicas-fotovoltaica*.parquet")
     print(f"Lendo base tecnica: {arq}")
-    df = pd.read_parquet(arq, columns=mu.COLUNAS_TECNICAS_ANEEL)
-    mu.validar_colunas(df, mu.COLUNAS_TECNICAS_ANEEL, arq)
+    colunas = mu.COLUNAS_TECNICAS_ANEEL + ["NomModeloModulo"]
+    df = pd.read_parquet(arq, columns=colunas)
+    mu.validar_colunas(df, colunas, arq)
     print(f"  {len(df):,} linhas")
     return df
 
@@ -110,6 +111,15 @@ def aplicar_marca(df: pd.DataFrame, campo: str) -> pd.Series:
         print(f"  aviso: {nao_mapeado} linhas com chave normalizada fora do mapa -> tratando como Outros "
               f"(rode montar_mapa_marcas.py de novo para cobrir)")
         marca = marca.fillna(mu.OUTROS)
+    if campo == "modulo":
+        # Marca vazia/ilegível, mas o código do modelo identifica o fabricante sem
+        # ambiguidade (JKM550M -> Jinko): recupera pelo modelo.
+        sem_marca = marca.isin([mu.OUTROS, mu.NAO_INFORMADO])
+        recuperada = mu.fabricante_pelo_modelo(df.loc[sem_marca, "NomModeloModulo"]).dropna()
+        marca.loc[recuperada.index] = recuperada
+        kw = df["MdaPotenciaInstalada"]
+        print(f"  marca recuperada pelo modelo: {len(recuperada):,} instalações "
+              f"({kw.loc[recuperada.index].sum() / kw.sum():.1%} do kW)")
     return marca
 
 

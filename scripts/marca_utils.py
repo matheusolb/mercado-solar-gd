@@ -58,6 +58,29 @@ def validar_colunas(df: pd.DataFrame, esperadas: list[str], origem: str) -> None
             f"O schema da fonte mudou, ou uma etapa anterior do pipeline precisa rodar de novo."
         )
 
+CAMINHO_PREFIXO_MODELO_MODULO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prefixo_modelo_modulo.csv")
+
+
+def normalizar_modelo(texto) -> str:
+    """Modelo do equipamento só com letras e números, sem o código de registro ANEEL colado na frente."""
+    s = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode().upper()
+    s = re.sub(r"[^A-Z0-9]", "", s)
+    return re.sub(r"^\d{3,4}(?=[A-Z])", "", s)
+
+
+def fabricante_pelo_modelo(modelos: pd.Series, caminho: str = CAMINHO_PREFIXO_MODELO_MODULO) -> pd.Series:
+    """Fabricante indicado pelo prefixo do código do modelo (RSM -> Risen, JKM -> Jinko).
+    NaN quando nenhum prefixo de prefixo_modelo_modulo.csv bate."""
+    texto = modelos.astype(str)
+    distintos = pd.Series(texto.unique())
+    norm = distintos.map(normalizar_modelo)
+    fab = pd.Series(pd.NA, index=distintos.index, dtype=object)
+    for r in pd.read_csv(caminho, dtype=str).itertuples():
+        bate = fab.isna() & norm.str.contains(r.padrao, regex=True)
+        fab[bate] = r.fabricante
+    return texto.map(dict(zip(distintos, fab)))
+
+
 _PREFIX_RE = re.compile(r"^\d+\s*[-–—]\s*")
 _PUNCT_RE = re.compile(r"[^A-Z0-9 ]")
 _WS_RE = re.compile(r"\s+")
