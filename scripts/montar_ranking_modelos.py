@@ -45,7 +45,7 @@ CONFIG = {
         "coluna_modelo": "NomModeloInversor",
         "regras": "tipo_modelo_inversor.csv",
         "rotulo": "tipo",
-        "ordem": ["String", "Microinversor", "Híbrido", NAO_CLASSIFICADO],
+        "ordem": ["String", "String com opção de bateria", "Microinversor", "Híbrido", NAO_CLASSIFICADO],
         "familia": lambda m: re.sub(r"\d", "", m),
         "ratings": {"PV-Tech InverterTech": "pvtech_bankability", "Wood Mackenzie Inverter Ranking": "woodmac_ranking"},
     },

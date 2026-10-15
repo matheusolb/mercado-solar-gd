@@ -33,3 +33,6 @@ dashboard/dashboard_fragment.html
 
 # ranking de modelos traz rating por marca (dados/referencia, nao versionado)
 dados/processados/ranking_modelos_*.csv
+
+# material interno: nunca versionar
+Ajustes/

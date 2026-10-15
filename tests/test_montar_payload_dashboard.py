@@ -37,6 +37,11 @@ def test_montar_payload_campo_smoke(tmp_path, monkeypatch):
     soma_2025 = sum(10.0 + i for i, pm in enumerate(periodos) if pm.startswith("2025"))
     assert payload["periodos"]["totais_mw"]["2025"] == pytest.approx(soma_2025 / 1000, rel=1e-6)
 
+    # composição completa por categoria: somada, tem que fechar com o total do período
+    comp = payload["periodos"]["faixa_composicao"]["2025"]["≤5 kW"]
+    assert payload["municipios_marcas_todas"][comp[0][0]] == "Canadian Solar"
+    assert sum(item[1] for item in comp) == pytest.approx(soma_2025 / 1000, rel=1e-6)
+
     anual = payload["tecnologia_anual"]
     assert payload["tecnologias_ordem"] == ["Mono PERC"]
-    assert anual["mw"]["Mono PERC"][anual["anos"].index(2025)] == pytest.approx(soma_2025 / 1000, rel=1e-6)
+    assert anual["mw"]["Mono PERC"][anual["periodos"].index("2025")] == pytest.approx(soma_2025 / 1000, rel=1e-6)

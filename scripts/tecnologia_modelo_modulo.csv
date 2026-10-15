@@ -1,4 +1,10 @@
 marca,padrao,tecnologia,confianca,fonte
+DAH Solar,DHJ,HJT,confirmado,DHJ-66Y18/DG 700-725 W = HJT (DHN é a versão TOPCon)
+ZNShine Solar,ZXI,HJT,confirmado,ZXI8-GPLDD132 = HJT 700 W (Canal Solar)
+ZNShine Solar,ZXM8,N-type TOPCon,confirmado,ZXM8-GPLDD/TPLDD132 = TOPCon
+HUASUN,\d,HJT,confirmado,Huasun fabrica só HJT (HS-210-B132DS700)
+Sunova,G12H$,HJT,inferido,SS-BG700-66MDH-G12(H); a versão (T) é TOPCon
+Risen Energy,HDG,HJT,inferido,RSM132-8-690HDG: mesmo sufixo HDG da linha Hyper-ion (BHDG)
 Canadian Solar,TBAG,N-type TOPCon,confirmado,TOPBiHiKu (CS7N-xxxTB-AG)
 Canadian Solar,\d{3}M[SB],Mono PERC,confirmado,HiKu/BiHiKu MS e MB-AG
 Canadian Solar,\d{3}P,Policristalino,confirmado,KuMax/KuPower sufixo P
@@ -87,7 +93,6 @@ JINERGY,JNBN,N-type TOPCon,inferido,N = n-type; 590 W em 144 meias-células
 Seraphim,BTC,N-type TOPCon,inferido,BTC = bifacial TOPCon
 Canadian Solar,CS7N7\d\d,N-type TOPCon,inferido (potência),700 W passa do teto do PERC no CS7N (665 W)
 Sunova,SS5[7-9]\d72MDH$|SS6\d{4}MDH,N-type TOPCon,confirmado,Tangra M Pro 72MDH 570-590 W = n-type
-Honor Solar,M12,N-type TOPCon,inferido (potência),700 W em 132 células G12 passa do teto do PERC
 *,TOPCON,N-type TOPCon,confirmado,texto do modelo diz TOPCon
 *,HJT,HJT,confirmado,texto do modelo diz HJT
 *,PERC,Mono PERC,confirmado,texto do modelo diz PERC

@@ -349,6 +349,9 @@
       <h2 id="titulo-tec-anual">Tecnologia ao longo do tempo</h2>
       <p class="card-caption" id="legenda-tec-anual-caption"></p>
     </div>
+    <div class="filtros">
+      <div class="filtro-grupo" id="filtro-tec-granularidade"></div>
+    </div>
     <div class="legend" id="legenda-tec-anual"></div>
     <div class="chart-wrap" id="wrap-tec-anual">
       <svg id="svg-tec-anual" viewBox="0 0 1000 280" preserveAspectRatio="xMidYMid meet"></svg>
@@ -479,7 +482,7 @@ var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
 
 var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
 
-var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, estadoGlobal:null, categoriaMetrica:"mw" };
+var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, tecGranularidade:"anual", estadoGlobal:null, categoriaMetrica:"mw" };
 // Vem do payload (montar_payload_dashboard.py); o fallback so cobre a preview
 // crua do template, sem payload embutido.
 var TOP_N_COR = DADOS.top_n_cor || 10;
@@ -556,8 +559,8 @@ var chavesNoIntervalo = anosNoRange;
 // de mostrar so um periodo (snapshot) e passem a somar um intervalo inteiro,
 // igual a Tendencia/Leaderboard ja faziam. So funciona pros dicionarios que o
 // payload guarda "completos" por periodo (marcas_mw, totais_mw, uf_mw, faixa_mw
-// etc.) -- os que ja vem truncados a um top-N por periodo (especialistas,
-// municipios_mw) nao sao somaveis (ver renderCategoria/renderGeoMunicipios).
+// etc.). Municipios e composicao por categoria vem em formato esparso com indice
+// de marca e tem soma propria (renderGeoMunicipios, especialistasNoIntervalo).
 function somarDict(dictoPorPeriodo, chaves){
   var total = {};
   chaves.forEach(function(chave){
@@ -580,6 +583,37 @@ function somarDictAninhado(dictoPorPeriodo, chaves){
     });
   });
   return total;
+}
+// Indice de especializacao do intervalo inteiro: soma a composicao completa por
+// categoria de todos os periodos e so entao calcula share na categoria / share
+// geral -- mesma conta que o Python fazia por periodo, agora somavel.
+// Item: [marca, share_na_categoria_pct, share_geral_pct, indice].
+function especialistasNoIntervalo(dados, chaveComposicao, chaves, perfil, porInstalacoes, n){
+  var col = porInstalacoes ? 2 : 1, iPerfil = porInstalacoes ? 1 : 0;
+  var nomes = dados.municipios_marcas_todas;
+  var porCat = {};
+  chaves.forEach(function(chave){
+    var comp = dados.periodos[chaveComposicao][chave] || {};
+    Object.keys(comp).forEach(function(cat){
+      var acc = porCat[cat] || (porCat[cat] = {});
+      comp[cat].forEach(function(it){ acc[it[0]] = (acc[it[0]] || 0) + it[col]; });
+    });
+  });
+  var geralMarca = somarDict(dados.periodos[porInstalacoes ? "marcas_inst" : "marcas_mw"], chaves);
+  var totalGeral = somarEscalar(dados.periodos[porInstalacoes ? "totais_inst" : "totais_mw"], chaves);
+  var resultado = {};
+  Object.keys(porCat).forEach(function(cat){
+    var totalCat = (perfil[cat] || [0, 0])[iPerfil];
+    if (!(totalCat > 0) || !(totalGeral > 0)) { resultado[cat] = []; return; }
+    resultado[cat] = Object.keys(porCat[cat]).map(function(idx){
+      var nome = nomes[idx];
+      var sc = porCat[cat][idx] / totalCat * 100;
+      var sg = (geralMarca[nome] || 0) / totalGeral * 100;
+      return [nome, sc, sg, sg > 0 ? sc / sg : null];
+    }).filter(function(item){ return item[1] > 0; })
+      .sort(function(a, b){ return b[1] - a[1]; }).slice(0, n || 6);
+  });
+  return resultado;
 }
 function somarPerfil(perfilPorPeriodo, chaves){
   var total = {};
@@ -1363,13 +1397,8 @@ function calcularCategoria(dados, cfg){
   var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var catValores = somarDictAninhado(dados.periodos[porInstalacoes ? cfg.chaveInst : cfg.chaveMw], chaves);
   var perfil = somarPerfil(dados.periodos[cfg.chavePerfil], chaves);
-  // Especialistas nao e somavel entre periodos (o payload guarda so o top-6 de
-  // CADA periodo, nao a composicao completa -- uma marca de nicho relevante so
-  // quando somada nao aparece em nenhum periodo isolado) -- por isso a tabela
-  // sempre reflete o periodo final do intervalo, nunca a soma. A metrica-base
-  // (MW ou instalacoes) segue o mesmo toggle global do grafico.
-  var chaveEsp = porInstalacoes ? cfg.chaveEspecialistasInst : cfg.chaveEspecialistas;
-  var especialistas = dados.periodos[chaveEsp][ate] || {};
+  // Especialistas do intervalo inteiro, na mesma metrica do toggle global.
+  var especialistas = especialistasNoIntervalo(dados, cfg.chaveComposicao, chaves, perfil, porInstalacoes);
 
   var linhas = categorias.map(function(c){
     var porMarca = catValores[c] || {};
@@ -1461,10 +1490,7 @@ function renderCategoria(cfg){
     "Índice de especialização = participação da marca na " + cfg.rotuloSingular + " ÷ participação no mercado total, na mesma " +
     "métrica escolhida acima (MW ou instalações). Valores acima de 1 indicam concentração acima da média; 3×, por exemplo, " +
     "indica presença três vezes maior que a média de mercado. A lista não se limita às marcas em destaque no gráfico " +
-    "— inclui especialistas de nicho." +
-    (estado.intervaloDe !== estado.intervaloAte
-      ? " Esta tabela em especial reflete sempre o período final do intervalo (" + rotuloExtenso(DADOS.campos[estado.campo], estado.intervaloAte) + "), não a soma do intervalo inteiro."
-      : "");
+    "— inclui especialistas de nicho. Calculado sobre o intervalo inteiro selecionado.";
 
   var tabela = document.getElementById(cfg.idTabela);
   limpar(tabela);
@@ -1495,7 +1521,7 @@ function renderCategoria(cfg){
 
 function renderFaixa(){
   renderCategoria({
-    chaveOrdem:"faixas_ordem", chaveMw:"faixa_mw", chaveInst:"faixa_inst", chavePerfil:"faixa_perfil", chaveEspecialistas:"faixa_especialistas", chaveEspecialistasInst:"faixa_especialistas_inst",
+    chaveOrdem:"faixas_ordem", chaveMw:"faixa_mw", chaveInst:"faixa_inst", chavePerfil:"faixa_perfil", chaveComposicao:"faixa_composicao",
     idLegenda:"legenda-faixa", idCaption:"legenda-faixa-caption", idSvg:"svg-faixa",
     idExplicacao:"explicacao-especialistas-faixa", idTabela:"tabela-faixa", idExport:"export-faixa", rotuloColuna:"Faixa",
     artigo:"a", rotuloSingular:"faixa", rotuloPlural:"Faixas", duasPontas:true,
@@ -1504,7 +1530,7 @@ function renderFaixa(){
 
 function renderClasse(){
   renderCategoria({
-    chaveOrdem:"classes_ordem", chaveMw:"classe_mw", chaveInst:"classe_inst", chavePerfil:"classe_perfil", chaveEspecialistas:"classe_especialistas", chaveEspecialistasInst:"classe_especialistas_inst",
+    chaveOrdem:"classes_ordem", chaveMw:"classe_mw", chaveInst:"classe_inst", chavePerfil:"classe_perfil", chaveComposicao:"classe_composicao",
     idLegenda:"legenda-classe", idCaption:"legenda-classe-caption", idSvg:"svg-classe",
     idExplicacao:"explicacao-especialistas-classe", idTabela:"tabela-classe", idExport:"export-classe", rotuloColuna:"Classe",
     artigo:"a", rotuloSingular:"classe de consumo", rotuloPlural:"Classes", duasPontas:false,
@@ -1513,7 +1539,7 @@ function renderClasse(){
 
 function renderTarifa(){
   renderCategoria({
-    chaveOrdem:"tarifas_ordem", chaveMw:"tarifa_mw", chaveInst:"tarifa_inst", chavePerfil:"tarifa_perfil", chaveEspecialistas:"tarifa_especialistas", chaveEspecialistasInst:"tarifa_especialistas_inst",
+    chaveOrdem:"tarifas_ordem", chaveMw:"tarifa_mw", chaveInst:"tarifa_inst", chavePerfil:"tarifa_perfil", chaveComposicao:"tarifa_composicao",
     idLegenda:"legenda-tarifa", idCaption:"legenda-tarifa-caption", idSvg:"svg-tarifa",
     idExplicacao:"explicacao-especialistas-tarifa", idTabela:"tabela-tarifa", idExport:"export-tarifa", rotuloColuna:"Grupo tarifário",
     artigo:"o", rotuloSingular:"grupo tarifário", rotuloPlural:"Grupos tarifários", duasPontas:false,
@@ -1522,7 +1548,7 @@ function renderTarifa(){
 
 function renderDistribuidora(){
   renderCategoria({
-    chaveOrdem:"distribuidoras_ordem", chaveMw:"distribuidora_mw", chaveInst:"distribuidora_inst", chavePerfil:"distribuidora_perfil", chaveEspecialistas:"distribuidora_especialistas", chaveEspecialistasInst:"distribuidora_especialistas_inst",
+    chaveOrdem:"distribuidoras_ordem", chaveMw:"distribuidora_mw", chaveInst:"distribuidora_inst", chavePerfil:"distribuidora_perfil", chaveComposicao:"distribuidora_composicao",
     idLegenda:"legenda-distribuidora", idCaption:"legenda-distribuidora-caption", idSvg:"svg-distribuidora",
     idExplicacao:"explicacao-especialistas-distribuidora", idTabela:"tabela-distribuidora", idExport:"export-distribuidora", rotuloColuna:"Distribuidora",
     artigo:"a", rotuloSingular:"distribuidora", rotuloPlural:"Distribuidoras", duasPontas:false,
@@ -1540,7 +1566,7 @@ function renderTecnologia(){
   document.getElementById("titulo-tec").textContent = ehModulo ? "Comportamento por tecnologia de célula" : "Comportamento por tipo de inversor";
   renderTecnologiaAnual(dados, ehModulo);
   renderCategoria({
-    chaveOrdem:"tecnologias_ordem", chaveMw:"tecnologia_mw", chaveInst:"tecnologia_inst", chavePerfil:"tecnologia_perfil", chaveEspecialistas:"tecnologia_especialistas", chaveEspecialistasInst:"tecnologia_especialistas_inst",
+    chaveOrdem:"tecnologias_ordem", chaveMw:"tecnologia_mw", chaveInst:"tecnologia_inst", chavePerfil:"tecnologia_perfil", chaveComposicao:"tecnologia_composicao",
     idLegenda:"legenda-tec", idCaption:"legenda-tec-caption", idSvg:"svg-tec",
     idExplicacao:"explicacao-especialistas-tec", idTabela:"tabela-tec", idExport:"export-tec", rotuloColuna: ehModulo ? "Tecnologia" : "Tipo",
     artigo:"a", rotuloSingular: ehModulo ? "tecnologia" : "categoria de inversor", rotuloPlural: ehModulo ? "Tecnologias" : "Tipos", duasPontas:false,
@@ -1548,12 +1574,16 @@ function renderTecnologia(){
   });
 }
 
-// Mix ano a ano, Brasil inteiro, sempre todos os anos -- não segue o filtro de
-// intervalo de propósito: a leitura aqui é a transição de geração (poli -> PERC ->
-// TOPCon), que só aparece com a série inteira. Cor: tons do acento do mais antigo
-// pro mais novo (as categorias têm ordem), sem reaproveitar as cores de marca.
+// Mix por ano ou trimestre, Brasil inteiro, sempre a série inteira -- não segue o
+// filtro de intervalo de propósito: a leitura aqui é a transição de geração (poli ->
+// PERC -> TOPCon/HJT), que só aparece com a série inteira; o trimestral mostra
+// movimentos curtos que o ano dilui (ex.: o pico de HJT perto do fim do
+// ex-tarifário, out/2025). Cor: tons do acento do mais antigo pro mais novo (as
+// categorias têm ordem), sem reaproveitar as cores de marca.
 function renderTecnologiaAnual(dados, ehModulo){
-  var mix = dados.tecnologia_anual, cats = dados.tecnologias_ordem, anos = mix.anos;
+  var trimestral = estado.tecGranularidade === "trimestral";
+  var mix = trimestral ? dados.tecnologia_trimestral : dados.tecnologia_anual;
+  var cats = dados.tecnologias_ordem, anos = mix.periodos;
   var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var serie = porInstalacoes ? mix.inst : mix.mw;
   var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR") + " instalações"; } : fmtMW;
@@ -1565,9 +1595,10 @@ function renderTecnologiaAnual(dados, ehModulo){
   }
   var totais = anos.map(function(_, i){ return cats.reduce(function(a, c){ return a + serie[c][i]; }, 0); });
   function pct(c, i){ return totais[i] > 0 ? serie[c][i] / totais[i] * 100 : 0; }
-  var anoParcial = parseInt(mix.ano_parcial_ate.slice(0, 4), 10), mesParcial = parseInt(mix.ano_parcial_ate.slice(5, 7), 10);
-  var temParcial = mesParcial < 12 && anos[anos.length - 1] === anoParcial;
-  function rotuloAno(a){ return temParcial && a === anoParcial ? a + "*" : String(a); }
+  var temParcial = mix.parcial !== null;
+  function rotuloAno(a){ return a.replace("-Q", " T") + (a === mix.parcial ? "*" : ""); }
+  function rotuloEixo(a){ return trimestral ? (/-Q1$/.test(a) ? a.slice(0, 4) : "") : rotuloAno(a); }
+  var anoParcial = mix.parcial, ateTxt = " (até " + mix.ate + ")";
 
   var leg = document.getElementById("legenda-tec-anual");
   limpar(leg);
@@ -1596,36 +1627,39 @@ function renderTecnologiaAnual(dados, ehModulo){
       }
       yAcum -= h;
     });
-    svg.appendChild(svgEl("text", { class:"eixo-txt", x:x+colW/2, y:H-8, "text-anchor":"middle", text: rotuloAno(a) }));
+    var rotulo = rotuloEixo(a);
+    if (rotulo) svg.appendChild(svgEl("text", { class:"eixo-txt", x:x+colW/2, y:H-8, "text-anchor":"middle", text: rotulo }));
     var hit = svgEl("rect", { class:"hitzone", x:ML + i * slot, y:MT, width:slot, height:plotH, tabindex:"0", role:"img", "aria-label": String(a) });
     svg.appendChild(hit);
     anexarHover(hit, function(mx, my){
       var tips = cats.slice().reverse().map(function(c){
         return { nome:c, cor:cor(c), valor: pct(c, i).toFixed(1) + "% · " + fmtValor(serie[c][i]) };
       });
-      mostrarTooltip(mx, my, rotuloAno(a) + (temParcial && a === anoParcial ? " (até " + mix.ano_parcial_ate + ")" : ""), tips, fmtValor(totais[i]));
+      mostrarTooltip(mx, my, rotuloAno(a) + (a === anoParcial ? ateTxt : ""), tips, fmtValor(totais[i]));
     });
   });
 
   var iF = anos.length - 1, i0 = 0;
   function lider(i){ return reais.slice().sort(function(x, y){ return serie[y][i] - serie[x][i]; })[0]; }
   var lf = lider(iF), l0 = lider(i0), base = porInstalacoes ? "das instalações" : "da potência instalada";
-  var texto = "Em " + anos[iF] + (temParcial ? " (até " + mix.ano_parcial_ate + ")" : "") + ", " + lf + " responde por " +
-    pct(lf, iF).toFixed(0) + "% " + base + (l0 !== lf ? "; em " + anos[i0] + ", a maior era " + l0 + " (" + pct(l0, i0).toFixed(0) + "%)"
-      : " (" + pct(lf, i0).toFixed(0) + "% em " + anos[i0] + ")") + ". " +
-    pct(NAO_CLASSIFICADO, iF).toFixed(0) + "% de " + anos[iF] + " ainda está sem classificação. Brasil inteiro, ano a ano — este gráfico não segue o filtro de intervalo.";
+  var fim = rotuloAno(anos[iF]).replace("*", ""), inicio = rotuloAno(anos[i0]);
+  var texto = "Em " + fim + (temParcial ? ateTxt : "") + ", " + lf + " responde por " +
+    pct(lf, iF).toFixed(0) + "% " + base + (l0 !== lf ? "; em " + inicio + ", a maior era " + l0 + " (" + pct(l0, i0).toFixed(0) + "%)"
+      : " (" + pct(lf, i0).toFixed(0) + "% em " + inicio + ")") + ". " +
+    pct(NAO_CLASSIFICADO, iF).toFixed(0) + "% de " + fim + " ainda está sem classificação. Brasil inteiro, " +
+    (trimestral ? "trimestre a trimestre" : "ano a ano") + " — este gráfico não segue o filtro de intervalo.";
   document.getElementById("legenda-tec-anual-caption").textContent = texto;
 
   document.getElementById("explicacao-tec-anual").textContent = (ehModulo
     ? "A tecnologia vem do código do modelo do módulo, por regras por fabricante (datasheets e padrão de nomenclatura). Para revendas que não informam a tecnologia no código, ela é inferida pela potência dentro do formato (em 144 meias-células, o PERC chega a ~560 W; acima de 570 W é N-type). "
-    : "O tipo vem do código do modelo do inversor, por regras por fabricante. Inversores que aceitam bateria mas são vendidos como on-grid (ex.: Huawei L1, WEG SIW300H) contam como string — a ANEEL não registra se a bateria foi instalada. ") +
+    : "O tipo vem do código do modelo do inversor, por regras por fabricante. \"String com opção de bateria\" é o inversor on-grid que já aceita bateria sem troca de equipamento (ex.: Huawei L1/LC0, WEG SIW300H) — mede o parque preparado para armazenamento, não baterias instaladas, que a ANEEL não registra. ") +
     "\"Não classificado\" junta modelo vazio, marca não identificada e modelos ainda não mapeados." +
-    (temParcial ? " * " + anoParcial + " parcial, até " + mix.ano_parcial_ate + "." : "");
+    (temParcial ? " * " + rotuloAno(anoParcial).replace("*", "") + " parcial, até " + mix.ate + "." : "");
 
   var tabela = document.getElementById("tabela-tec-anual");
   limpar(tabela);
   var thead = el("thead"), trh = el("tr");
-  ["Ano"].concat(cats).forEach(function(h){ trh.appendChild(el("th", { text:h })); });
+  [trimestral ? "Trimestre" : "Ano"].concat(cats).forEach(function(h){ trh.appendChild(el("th", { text:h })); });
   thead.appendChild(trh); tabela.appendChild(thead);
   var tbody = el("tbody"), linhasCsv = [];
   anos.forEach(function(a, i){
@@ -1636,8 +1670,8 @@ function renderTecnologiaAnual(dados, ehModulo){
     linhasCsv.push([rotuloAno(a)].concat(cats.map(function(c){ return pct(c, i).toFixed(2); })));
   });
   tabela.appendChild(tbody);
-  montarBotaoCsv("export-tec-anual", "tecnologia_anual_" + estado.campo + "_" + (porInstalacoes ? "instalacoes" : "mw") + ".csv",
-    ["Ano"].concat(cats.map(function(c){ return c + " %"; })), linhasCsv);
+  montarBotaoCsv("export-tec-anual", "tecnologia_" + estado.tecGranularidade + "_" + estado.campo + "_" + (porInstalacoes ? "instalacoes" : "mw") + ".csv",
+    [trimestral ? "Trimestre" : "Ano"].concat(cats.map(function(c){ return c + " %"; })), linhasCsv);
 }
 
 // Motor generico por tras do drill-down Brasil > Regiao > Estado > Municipio --
@@ -2255,9 +2289,8 @@ montarFiltro(document.getElementById("filtro-campo"), [
 // Toggle proprio (nao usa syncPressed/mapa, que ja tem "mw" reservado pro metrica
 // do Leaderboard com rotulo diferente -- "MW absoluto" em vez de "MW") -- afeta
 // Tendencia, Cada marca individualmente e as barras empilhadas de Faixa/Classe/
-// Tarifa/Distribuidora. NAO afeta a tabela de especialistas dessas quatro (indice
-// de especializacao continua sempre em MW, ver calcularCategoria) nem o Ranking/
-// Leaderboard (que tem seu proprio seletor "Ordenar por" independente).
+// Tarifa/Distribuidora/Tecnologia, incluindo o indice de especializacao. Participacao
+// de mercado (Ranking, Leaderboard) continua sempre em MW.
 function montarFiltroCategoriaMetrica(){
   montarFiltro(document.getElementById("filtro-categoria-metrica"), [
     { label:"MW", valor:"mw" }, { label:"Instalações", valor:"instalacoes" }
@@ -2269,6 +2302,17 @@ function montarFiltroCategoriaMetrica(){
   });
 }
 montarFiltroCategoriaMetrica();
+
+function montarFiltroTecGranularidade(){
+  montarFiltro(document.getElementById("filtro-tec-granularidade"), [
+    { label:"Anual", valor:"anual" }, { label:"Trimestral", valor:"trimestral" }
+  ], estado.tecGranularidade, function(v){
+    estado.tecGranularidade = v;
+    montarFiltroTecGranularidade();
+    renderTecnologiaAnual(DADOS.campos[estado.campo], estado.campo === "modulo");
+  });
+}
+montarFiltroTecGranularidade();
 
 montarFiltro(document.getElementById("filtro-granularidade"), [
   { label:"Mensal", valor:"mensal" }, { label:"Trimestral", valor:"trimestral" }, { label:"Anual", valor:"anual" }

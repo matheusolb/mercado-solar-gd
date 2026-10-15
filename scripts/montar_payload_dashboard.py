@@ -267,41 +267,20 @@ def perfil_categoria(df: pd.DataFrame, meses: list[str], coluna: str, categorias
     return {str(cat): [round(r["kw"] / 1000, 3), int(r["inst"])] for cat, r in agrupado.iterrows()}
 
 
-def especialistas_por_categoria(df: pd.DataFrame, meses: list[str], coluna: str, categorias: list[str],
-                                 n: int = 6, coluna_valor: str = "soma_kw") -> dict[str, list]:
-    """Top marcas de cada categoria com indice de especializacao (share na categoria /
-    share geral). Indice > 1 significa que a marca e mais forte naquela categoria do
-    que no mercado como um todo -- e o que responde "quais marcas se sobressaem em
-    cada [faixa/classe/tarifa/distribuidora]". NAO restringe ao top-8 global de
-    proposito: especialistas de nicho so aparecem sem essa restricao, exatamente como
-    a marca lider por municipio. coluna_valor troca a metrica-base (soma_kw ou
-    qtd_instalacoes) -- alimenta o toggle MW/Instalacoes, chamado uma vez pra cada.
-    Cada item: [marca, share_na_categoria_pct, share_geral_pct, indice]."""
-    subset = df[df["ano_mes"].isin(meses)]
-    total_geral = subset[coluna_valor].sum()
-    reais = subset[~subset["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
-    if total_geral <= 0 or reais.empty:
-        return {str(c): [] for c in categorias}
-    share_geral = reais.groupby("marca")[coluna_valor].sum() / total_geral * 100
-
-    resultado: dict[str, list] = {}
-    for cat in categorias:
-        total_cat = subset[subset[coluna] == cat][coluna_valor].sum()
-        na_cat = reais[reais[coluna] == cat]
-        if total_cat <= 0 or na_cat.empty:
-            resultado[str(cat)] = []
-            continue
-        share_cat = (na_cat.groupby("marca")[coluna_valor].sum() / total_cat * 100).sort_values(ascending=False)
-        itens = []
-        for marca, sc in share_cat.head(n).items():
-            sg = float(share_geral.get(marca, 0.0))
-            # 4 casas, nao 1 -- o cliente ainda arredonda pra 1 casa na exibicao
-            # (.toFixed(1)); guardar so 1-2 casas aqui faria um duplo-arredondamento
-            # que pode virar a casa decimal perto de limites (ex: indice=1.15 ->
-            # toFixed(1) da "1.1" em vez de "1.2" por representacao binaria do float).
-            indice = round(sc / sg, 4) if sg > 0 else None
-            itens.append([marca, round(float(sc), 2), round(sg, 2), indice])
-        resultado[str(cat)] = itens
+def composicao_categoria(df: pd.DataFrame, meses: list[str], coluna: str, categorias: list[str],
+                         marcas_indice: dict[str, int]) -> dict[str, list]:
+    """Composição completa por marca real de cada categoria, esparsa: {categoria:
+    [[indice_marca, mw, instalacoes], ...]}, índice em "municipios_marcas_todas".
+    Completa (sem top-N) de propósito: é o que deixa o cliente somar qualquer
+    intervalo de períodos e calcular o índice de especialização (share na categoria
+    / share geral) do intervalo inteiro, não só de um período."""
+    subset = df[df["ano_mes"].isin(meses) & ~df["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO])]
+    agrupado = subset.groupby([coluna, "marca"], observed=True).agg(
+        kw=("soma_kw", "sum"), inst=("qtd_instalacoes", "sum"))
+    resultado: dict[str, list] = {str(c): [] for c in categorias}
+    for (cat, marca), linha in agrupado.iterrows():
+        if str(cat) in resultado and (linha["kw"] > 0 or linha["inst"] > 0):
+            resultado[str(cat)].append([marcas_indice[marca], round(linha["kw"] / 1000, 3), int(linha["inst"])])
     return resultado
 
 
@@ -348,16 +327,18 @@ def totais_uf_instalacoes(df: pd.DataFrame, meses: list[str], marcas_grafico: li
     return {uf: {m: int(v) for m, v in linha.items()} for uf, linha in agrupado.iterrows()}
 
 
-def mix_anual(df: pd.DataFrame, ancora: pd.Period, categorias: list[str]) -> dict:
-    """Composição por tecnologia/tipo de cada ano, até o último mês completo -- alimenta
-    o gráfico de evolução (o ano corrente vem parcial, até a âncora)."""
+def mix_por_periodo(df: pd.DataFrame, ancora: pd.Period, categorias: list[str], coluna: str) -> dict:
+    """Composição por tecnologia/tipo de cada ano (coluna="ano") ou trimestre
+    (coluna="ano_trimestre"), até o último mês completo -- alimenta o gráfico de
+    evolução. "parcial" é o rótulo do último período quando ele ainda não fechou."""
     sub = df[df["ano_mes"] <= str(ancora)]
-    anos = sorted(int(a) for a in sub["ano"].unique())
-    def pivot(coluna, fator, tipo):
-        t = sub.pivot_table(index="ano", columns="tecnologia", values=coluna, aggfunc="sum", observed=True)
-        t = t.reindex(index=anos, columns=categorias, fill_value=0).fillna(0)
+    periodos = sorted(sub[coluna].astype(str).unique())
+    fechou = ancora.month == 12 if coluna == "ano" else ancora.month % 3 == 0
+    def pivot(valor, fator, tipo):
+        t = sub.pivot_table(index=sub[coluna].astype(str), columns="tecnologia", values=valor, aggfunc="sum", observed=True)
+        t = t.reindex(index=periodos, columns=categorias, fill_value=0).fillna(0)
         return {c: [tipo(v / fator) for v in t[c]] for c in categorias}
-    return {"anos": anos, "ano_parcial_ate": str(ancora),
+    return {"periodos": periodos, "parcial": None if fechou else periodos[-1], "ate": str(ancora),
             "mw": pivot("soma_kw", 1000, lambda v: round(v, 3)), "inst": pivot("qtd_instalacoes", 1, int)}
 
 
@@ -407,11 +388,11 @@ def montar_payload_campo(campo: str) -> dict:
 
     totais_mw, totais_inst, marcas_mw, marcas_inst = {}, {}, {}, {}
     uf_mw, uf_inst, uf_lideres_por_periodo, municipios_por_periodo = {}, {}, {}, {}
-    faixa_mw, faixa_inst, faixa_perfil, faixa_especialistas, faixa_especialistas_inst = {}, {}, {}, {}, {}
-    classe_mw, classe_inst, classe_perfil, classe_especialistas, classe_especialistas_inst = {}, {}, {}, {}, {}
-    tarifa_mw, tarifa_inst, tarifa_perfil, tarifa_especialistas, tarifa_especialistas_inst = {}, {}, {}, {}, {}
-    dist_mw, dist_inst, dist_perfil, dist_especialistas, dist_especialistas_inst = {}, {}, {}, {}, {}
-    tec_mw, tec_inst, tec_perfil, tec_especialistas, tec_especialistas_inst = {}, {}, {}, {}, {}
+    faixa_mw, faixa_inst, faixa_perfil, faixa_composicao = {}, {}, {}, {}
+    classe_mw, classe_inst, classe_perfil, classe_composicao = {}, {}, {}, {}
+    tarifa_mw, tarifa_inst, tarifa_perfil, tarifa_composicao = {}, {}, {}, {}
+    dist_mw, dist_inst, dist_perfil, dist_composicao = {}, {}, {}, {}
+    tec_mw, tec_inst, tec_perfil, tec_composicao = {}, {}, {}, {}
     tecnologias_ordem = [t for t in mrm.CONFIG[campo]["ordem"] if t in set(df["tecnologia"])]
     for chave, meses in periodos_meses.items():
         totais_mw[chave] = round(df[df["ano_mes"].isin(meses)]["soma_kw"].sum() / 1000, 3)
@@ -426,32 +407,27 @@ def montar_payload_campo(campo: str) -> dict:
         faixa_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "faixa_potencia", faixas_ordem)
         faixa_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "faixa_potencia", faixas_ordem)
         faixa_perfil[chave] = perfil_categoria(df, meses, "faixa_potencia", faixas_ordem)
-        faixa_especialistas[chave] = especialistas_por_categoria(df, meses, "faixa_potencia", faixas_ordem)
-        faixa_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "faixa_potencia", faixas_ordem, coluna_valor="qtd_instalacoes")
+        faixa_composicao[chave] = composicao_categoria(df, meses, "faixa_potencia", faixas_ordem, municipios_marcas_indice)
 
         classe_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "classe_consumo", classes_ordem)
         classe_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "classe_consumo", classes_ordem)
         classe_perfil[chave] = perfil_categoria(df, meses, "classe_consumo", classes_ordem)
-        classe_especialistas[chave] = especialistas_por_categoria(df, meses, "classe_consumo", classes_ordem)
-        classe_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "classe_consumo", classes_ordem, coluna_valor="qtd_instalacoes")
+        classe_composicao[chave] = composicao_categoria(df, meses, "classe_consumo", classes_ordem, municipios_marcas_indice)
 
         tarifa_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "grupo_tarifario", tarifas_ordem)
         tarifa_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "grupo_tarifario", tarifas_ordem)
         tarifa_perfil[chave] = perfil_categoria(df, meses, "grupo_tarifario", tarifas_ordem)
-        tarifa_especialistas[chave] = especialistas_por_categoria(df, meses, "grupo_tarifario", tarifas_ordem)
-        tarifa_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "grupo_tarifario", tarifas_ordem, coluna_valor="qtd_instalacoes")
+        tarifa_composicao[chave] = composicao_categoria(df, meses, "grupo_tarifario", tarifas_ordem, municipios_marcas_indice)
 
         dist_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "_distribuidora_fold", distribuidoras_ordem)
         dist_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "_distribuidora_fold", distribuidoras_ordem)
         dist_perfil[chave] = perfil_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem)
-        dist_especialistas[chave] = especialistas_por_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem)
-        dist_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem, coluna_valor="qtd_instalacoes")
+        dist_composicao[chave] = composicao_categoria(df, meses, "_distribuidora_fold", distribuidoras_ordem, municipios_marcas_indice)
 
         tec_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "tecnologia", tecnologias_ordem)
         tec_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "tecnologia", tecnologias_ordem)
         tec_perfil[chave] = perfil_categoria(df, meses, "tecnologia", tecnologias_ordem)
-        tec_especialistas[chave] = especialistas_por_categoria(df, meses, "tecnologia", tecnologias_ordem)
-        tec_especialistas_inst[chave] = especialistas_por_categoria(df, meses, "tecnologia", tecnologias_ordem, coluna_valor="qtd_instalacoes")
+        tec_composicao[chave] = composicao_categoria(df, meses, "tecnologia", tecnologias_ordem, municipios_marcas_indice)
 
     return {
         "marcas": marcas_grafico,
@@ -463,13 +439,15 @@ def montar_payload_campo(campo: str) -> dict:
         "amostra_nao_identificado": amostra_nao_identificado(campo, TOP_N_NAO_IDENTIFICADO),
         "serie_por_marca": serie_mensal_todas_marcas(df),
         "municipios_info": municipios_info(df),
+        # índice de marcas compartilhado: municípios e composição por categoria
         "municipios_marcas_todas": municipios_marcas_todas,
         "faixas_ordem": faixas_ordem,
         "classes_ordem": classes_ordem,
         "tarifas_ordem": tarifas_ordem,
         "distribuidoras_ordem": distribuidoras_ordem,
         "tecnologias_ordem": tecnologias_ordem,
-        "tecnologia_anual": mix_anual(df, ancora, tecnologias_ordem),
+        "tecnologia_anual": mix_por_periodo(df, ancora, tecnologias_ordem, "ano"),
+        "tecnologia_trimestral": mix_por_periodo(df, ancora, tecnologias_ordem, "ano_trimestre"),
         "uf_regiao": mapa_uf_regiao(df),
         "periodos": {
             "ordem": ordem,
@@ -486,28 +464,23 @@ def montar_payload_campo(campo: str) -> dict:
             "faixa_mw": faixa_mw,
             "faixa_inst": faixa_inst,
             "faixa_perfil": faixa_perfil,
-            "faixa_especialistas": faixa_especialistas,
-            "faixa_especialistas_inst": faixa_especialistas_inst,
+            "faixa_composicao": faixa_composicao,
             "classe_mw": classe_mw,
             "classe_inst": classe_inst,
             "classe_perfil": classe_perfil,
-            "classe_especialistas": classe_especialistas,
-            "classe_especialistas_inst": classe_especialistas_inst,
+            "classe_composicao": classe_composicao,
             "tarifa_mw": tarifa_mw,
             "tarifa_inst": tarifa_inst,
             "tarifa_perfil": tarifa_perfil,
-            "tarifa_especialistas": tarifa_especialistas,
-            "tarifa_especialistas_inst": tarifa_especialistas_inst,
+            "tarifa_composicao": tarifa_composicao,
             "distribuidora_mw": dist_mw,
             "distribuidora_inst": dist_inst,
             "distribuidora_perfil": dist_perfil,
-            "distribuidora_especialistas": dist_especialistas,
-            "distribuidora_especialistas_inst": dist_especialistas_inst,
+            "distribuidora_composicao": dist_composicao,
             "tecnologia_mw": tec_mw,
             "tecnologia_inst": tec_inst,
             "tecnologia_perfil": tec_perfil,
-            "tecnologia_especialistas": tec_especialistas,
-            "tecnologia_especialistas_inst": tec_especialistas_inst,
+            "tecnologia_composicao": tec_composicao,
         },
     }
 

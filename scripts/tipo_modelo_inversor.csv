@@ -9,10 +9,12 @@ Sungrow,^SG|\d,String,confirmado,SG = string on-grid
 Deye,"SUNM\d|SUN\d{3,4}G\d",Microinversor,confirmado,SUN-M e SUN2000G3 = micro
 Deye,KSG|SG\d\dLP,Híbrido,confirmado,SUN-xK-SG04LP = hybrid
 Deye,\d,String,confirmado,SUN-xK-G = string on-grid
-Solis (Ginlong),RHI|EH\dP|S\dEH,Híbrido,confirmado,RHI/S6-EH = hybrid
+Solis (Ginlong),RHI|RAI|48ES|EH\dP|S\dEH,Híbrido,confirmado,RHI/RAI/S6-EH = hybrid e inversor de bateria (48 V)
 Solis (Ginlong),\d,String,confirmado,S5/S6-GR/GC e Solis-xK = string on-grid
-Huawei,\d,String,confirmado,SUN2000-KTL on-grid (L1/LC0/M1 aceitam bateria LUNA2000 mas contam como string)
-WEG,SIW,String,confirmado,catálogo WEG SIW inversores string (SIW300H aceita armazenamento)
+Huawei,KTLL1|L1$|LC0|LCO|SUN2000(?:[3-9]|1\d|20)KTLM1|KMB0,String com opção de bateria,confirmado,SUN2000 residencial L1/LC0/MB0 e M1 até 20 kW: on-grid compatível com bateria LUNA2000
+Huawei,\d,String,confirmado,SUN2000-KTL on-grid
+WEG,SIW300H,String com opção de bateria,confirmado,SIW300H: interface de armazenamento plug & play (catálogo WEG)
+WEG,SIW,String,confirmado,catálogo WEG SIW inversores string
 SAJ,^H[12]\d|^AS\d,Híbrido,inferido,H1/H2/AS = hybrid
 SAJ,^M2,Microinversor,inferido,M2-xK-S4 = micro
 SAJ,\d,String,confirmado,R5/R6/C6/Suntrio/Sununo on-grid
