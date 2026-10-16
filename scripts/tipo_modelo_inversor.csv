@@ -4,6 +4,7 @@ marca,padrao,tipo,confianca,fonte
 Growatt,XH(?!V)|SPH|SPF|SPA\d,Híbrido,confirmado,linhas SPH/SPA e sufixo XH (MIN TL-XH)
 Growatt,NEO,Microinversor,confirmado,NEO = micro
 Growatt,\d,String,confirmado,MIN/MID/MAX/MAC/MIC/MTL on-grid
+Growatt,^(?:MIN|MID|MAX|MAC|MIC|MTL),String,confirmado,linhas on-grid cadastradas sem a potência (ex.: MIN TL-X)
 Sungrow,^SH\d,Híbrido,confirmado,SH = hybrid
 Sungrow,^SG|\d,String,confirmado,SG = string on-grid
 Deye,"SUNM\d|SUN\d{3,4}G\d",Microinversor,confirmado,SUN-M e SUN2000G3 = micro
