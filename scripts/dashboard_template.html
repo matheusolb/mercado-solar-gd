@@ -8,7 +8,7 @@
      --serie-9/10 adicionados sem o script validador (node indisponivel no
      ambiente que gerou isto) -- checar contraste manualmente se notar problema. */
   :root{
-    --pg-plano:#f3f5f3; --superficie:#ffffff; --tinta:#1b2420; --tinta-2:#55625a; --tinta-muda:#83978b;
+    --pg-plano:#f3f5f3; --superficie:#ffffff; --tinta:#1b2420; --tinta-2:#55625a; --tinta-muda:#5f6f66;
     --grade:#dce2df; --eixo:#dce2df; --borda:rgba(27,36,32,0.10);
     --acento:#00953b; --acento-fraco:#e6f4eb;
     --serie-1:#2a78d6; --serie-2:#eb6834; --serie-3:#1baf7a; --serie-4:#eda100;
@@ -37,6 +37,7 @@
     --acento:#3fbd72; --acento-fraco:#17301f;
     --serie-1:#3987e5; --serie-2:#d95926; --serie-3:#199e70; --serie-4:#c98500;
     --serie-5:#d55181; --serie-6:#008300; --serie-7:#9085e9; --serie-8:#e66767;
+    --serie-9:#33b8d1; --serie-10:#c9a13a;
     --outros:#6d8377; --nao-informado:#26382e;
     --bom:#3fbd72; --mau:#e8695a;
     color-scheme:dark;
@@ -44,7 +45,7 @@
 
   .dash{
     background:var(--pg-plano); color:var(--tinta);
-    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-family:"Dialog",Verdana,Geneva,sans-serif;
     max-width:1180px; margin:0 auto; padding:28px 20px 60px;
     display:flex; flex-direction:column; gap:22px;
   }
@@ -119,7 +120,8 @@
   .chip button:focus-visible{outline:2px solid var(--acento);}
 
   .card{
-    background:var(--superficie); border:1px solid var(--borda); border-radius:14px;
+    background:var(--superficie); border:1px solid var(--grade); border-radius:10px;
+    box-shadow:0 1px 2px rgba(27,36,32,.05), 0 2px 8px rgba(27,36,32,.04);
     padding:20px 22px 22px; display:flex; flex-direction:column; gap:14px;
   }
   .card[hidden]{display:none;}
@@ -245,7 +247,7 @@
   <header class="dash-head">
     <div class="dash-head-linha">
       <p class="eyebrow">Geração Distribuída Solar · Dados ANEEL</p>
-      <button type="button" class="botao-ajuda" id="botao-ajuda" aria-expanded="false">❓ Como usar este painel</button>
+      <button type="button" class="botao-ajuda" id="botao-ajuda" aria-expanded="false">Como usar este painel</button>
     </div>
     <h1>Evolução de marcas de módulos e inversores</h1>
     <p class="dash-sub" id="subtitulo"></p>
@@ -332,6 +334,10 @@
     <div class="card-head">
       <h2>Modelos mais instalados</h2>
       <p class="card-caption" id="legenda-modelos-caption"></p>
+    </div>
+    <div class="filtros">
+      <label class="filtro-rotulo" for="filtro-modelos-marca-select">Marca</label>
+      <div class="filtro-grupo filtro-periodo" id="filtro-modelos-marca"></div>
     </div>
     <div class="tabela-export" id="export-modelos"></div>
     <div class="table-scroll"><table class="dados" id="tabela-modelos"></table></div>
@@ -536,7 +542,7 @@ var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
 
 var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
 
-var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, tecGranularidade:"anual", tecDimensao:"tecnologia", estadoGlobal:null, categoriaMetrica:"mw" };
+var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, tecGranularidade:"anual", tecDimensao:"tecnologia", modelosMarca:"", estadoGlobal:null, categoriaMetrica:"mw" };
 // Vem do payload (montar_payload_dashboard.py); o fallback so cobre a preview
 // crua do template, sem payload embutido.
 var TOP_N_COR = DADOS.top_n_cor || 10;
@@ -549,12 +555,21 @@ function el(tag, attrs, ns){
 }
 function svgEl(tag, attrs){ return el(tag, attrs, true); }
 function limpar(node){ while (node.firstChild) node.removeChild(node.firstChild); }
+function fmtNum(v, casas){
+  return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
+// "2026-05" -> "mai/2026"
+var MESES_CURTOS = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+function fmtMes(anoMes){
+  var p = String(anoMes).split("-");
+  return p.length === 2 && /^\d{2}$/.test(p[1]) ? MESES_CURTOS[parseInt(p[1], 10) - 1] + "/" + p[0] : anoMes;
+}
 function fmtMW(v){
   var abs = Math.abs(v);
-  var s = abs >= 1000 ? (v/1000).toFixed(2) + " GW" : v.toFixed(abs < 10 ? 2 : 1) + " MW";
+  var s = abs >= 1000 ? fmtNum((v/1000), 2) + " GW" : fmtNum(v, abs < 10 ? 2 : 1) + " MW";
   return s;
 }
-function fmtPct(v, casas){ return (v > 0 ? "+" : "") + v.toFixed(casas === undefined ? 1 : casas) + " p.p.";}
+function fmtPct(v, casas){ return (v > 0 ? "+" : "") + fmtNum(v, casas === undefined ? 1 : casas) + " p.p.";}
 
 // Exportacao de tabelas em CSV -- ";" como separador (nao ",") porque o Excel
 // em pt-BR usa virgula como separador decimal e quebraria a leitura das colunas
@@ -581,7 +596,7 @@ function montarBotaoCsv(containerId, nomeArquivo, cabecalhos, linhas){
   var container = document.getElementById(containerId);
   if (!container) return;
   limpar(container);
-  var btn = el("button", { type:"button", class:"botao-csv", text:"⬇ Baixar CSV" });
+  var btn = el("button", { type:"button", class:"botao-csv", text:"Baixar CSV" });
   btn.addEventListener("click", function(){ baixarCsv(nomeArquivo, cabecalhos, linhas); });
   container.appendChild(btn);
 }
@@ -732,10 +747,10 @@ function renderCapilaridade(chaveComposicao, chave, rotuloPlural, rotuloColuna){
   var base = porInstalacoes ? "das instalações" : "do volume";
   document.getElementById("capilaridade-" + chave + "-texto").textContent =
     "No mercado como um todo, as 3 maiores " + rotuloPlural + " (" + cap.mercado.principais.join(", ") + ") concentram " +
-    cap.mercado.top3pct.toFixed(0) + "% " + base + " " + emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + ". " +
+    fmtNum(cap.mercado.top3pct, 0) + "% " + base + " " + emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + ". " +
     "Entre as " + top.length + " maiores marcas, " + nacionais.length + " têm perfil nacional e " + concentradas.length + " são concentradas. " +
-    (maisEspalhada ? maisEspalhada.marca + " é a mais espalhada (" + maisEspalhada.top3pct.toFixed(0) + "% nas 3 maiores); " : "") +
-    (maisConcentrada ? maisConcentrada.marca + " a mais concentrada (" + maisConcentrada.top3pct.toFixed(0) + "% em " + maisConcentrada.principais.join(", ") + "). " : "") +
+    (maisEspalhada ? maisEspalhada.marca + " é a mais espalhada (" + fmtNum(maisEspalhada.top3pct, 0) + "% nas 3 maiores); " : "") +
+    (maisConcentrada ? maisConcentrada.marca + " a mais concentrada (" + fmtNum(maisConcentrada.top3pct, 0) + "% em " + maisConcentrada.principais.join(", ") + "). " : "") +
     "Perfil: nacional = concentração até 10 p.p. acima da do mercado; regional = 10 a 25 p.p.; concentrada = mais de 25 p.p. " +
     "Presença relevante = " + rotuloColuna.toLowerCase() + " com pelo menos 1% do volume da marca.";
 
@@ -748,12 +763,12 @@ function renderCapilaridade(chaveComposicao, chave, rotuloPlural, rotuloColuna){
   var tbody = el("tbody");
   top.forEach(function(m){
     var tr = el("tr");
-    [m.marca, String(m.relevantes), m.top3pct.toFixed(0) + "%", m.principais.join(", "), m.perfil].forEach(function(v){ tr.appendChild(el("td", { text:v })); });
+    [m.marca, String(m.relevantes), fmtNum(m.top3pct, 0) + "%", m.principais.join(", "), m.perfil].forEach(function(v){ tr.appendChild(el("td", { text:v })); });
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
   montarBotaoCsv("export-capilaridade-" + chave, "capilaridade_" + chave + "_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
-    cab, cap.marcas.map(function(m){ return [m.marca, m.relevantes, m.top3pct.toFixed(1), m.principais.join(", "), m.perfil]; }));
+    cab, cap.marcas.map(function(m){ return [m.marca, m.relevantes, fmtNum(m.top3pct, 1), m.principais.join(", "), m.perfil]; }));
 }
 
 function somarPerfil(perfilPorPeriodo, chaves){
@@ -837,7 +852,7 @@ function emIntervalo(dados, de, ate){
 function rotuloExtenso(dados, chave){
   var base = dados.periodos.rotulos[chave];
   var ext = dados.periodos.extremos && dados.periodos.extremos[chave];
-  if ((chave === "ultimos_12m" || chave === "anteriores_12m") && ext) return base + " (" + ext[0] + " a " + ext[1] + ")";
+  if ((chave === "ultimos_12m" || chave === "anteriores_12m") && ext) return base + " (" + fmtMes(ext[0]) + " a " + fmtMes(ext[1]) + ")";
   return base;
 }
 
@@ -1136,7 +1151,7 @@ function renderTendencia(){
   renderLegenda(document.getElementById("legenda-tendencia"), marcas);
   var destaques = resumoDestaques(dados);
   document.getElementById("legenda-tendencia-caption").textContent =
-    destaques.lider.marca + " lidera com " + destaques.lider.share_final_pct.toFixed(1) + "% de participação " + emPeriodo(dados, destaques.anoRecente) + ". " +
+    destaques.lider.marca + " lidera com " + fmtNum(destaques.lider.share_final_pct, 1) + "% de participação " + emPeriodo(dados, destaques.anoRecente) + ". " +
     destaques.maiorAlta.marca + " foi quem mais ganhou espaço em relação a " + dados.periodos.rotulos[destaques.anoBase].toLowerCase() + " (" + fmtPct(destaques.maiorAlta.delta_pontos_percentuais) +
     "), e " + destaques.maiorQueda.marca + " quem mais perdeu (" + fmtPct(destaques.maiorQueda.delta_pontos_percentuais) + ").";
 
@@ -1153,7 +1168,7 @@ function renderTendencia(){
   for (var t = 0; t <= maxEixo; t += passo){
     var y = MT + alturaGrafico - (t / maxEixo) * alturaGrafico;
     svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
-    var rotuloEixo = porInstalacoes ? Math.round(t).toLocaleString("pt-BR") : (t>=1000? (t/1000).toFixed(1)+" GW": Math.round(t));
+    var rotuloEixo = porInstalacoes ? Math.round(t).toLocaleString("pt-BR") : (t>=1000? fmtNum((t/1000), 1)+" GW": Math.round(t));
     svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: rotuloEixo }));
   }
 
@@ -1217,8 +1232,8 @@ function renderTendencia(){
   periodos.slice().reverse().forEach(function(p){
     var tr = el("tr");
     tr.appendChild(el("td", { text:p.periodo }));
-    p.valores_mw.forEach(function(v){ tr.appendChild(el("td", { text: porInstalacoes ? String(Math.round(v)) : v.toFixed(1) })); });
-    tr.appendChild(el("td", { text: porInstalacoes ? String(Math.round(p.total_mw)) : p.total_mw.toFixed(1) }));
+    p.valores_mw.forEach(function(v){ tr.appendChild(el("td", { text: porInstalacoes ? String(Math.round(v)) : fmtNum(v, 1) })); });
+    tr.appendChild(el("td", { text: porInstalacoes ? String(Math.round(p.total_mw)) : fmtNum(p.total_mw, 1) }));
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
@@ -1401,7 +1416,7 @@ function renderMarcaEspecifica(){
   for (var t = 0; t <= maxEixo; t += passo){
     var y = MT + altura - (t / maxEixo) * altura;
     svg.appendChild(svgEl("line", { class:"eixo-linha", x1:ML, x2:W-MR, y1:y, y2:y }));
-    var rotuloEixoMe = porInstalacoes ? Math.round(t).toLocaleString("pt-BR") : (t>=1000 ? (t/1000).toFixed(1)+" GW" : Math.round(t));
+    var rotuloEixoMe = porInstalacoes ? Math.round(t).toLocaleString("pt-BR") : (t>=1000 ? fmtNum((t/1000), 1)+" GW" : Math.round(t));
     svg.appendChild(svgEl("text", { class:"eixo-txt", x:ML-8, y:y+3, "text-anchor":"end", text: rotuloEixoMe }));
   }
 
@@ -1507,15 +1522,15 @@ function renderLeaderboard(){
     (function(item){
       anexarHover(hit, function(mx,my){
         var linhasTip = [
-          { nome:"Share " + dados.periodos.rotulos[de], valor: item.share_inicial_pct.toFixed(2) + "%" },
-          { nome:"Share " + dados.periodos.rotulos[ate], valor: item.share_final_pct.toFixed(2) + "%" },
+          { nome:"Share " + dados.periodos.rotulos[de], valor: fmtNum(item.share_inicial_pct, 2) + "%" },
+          { nome:"Share " + dados.periodos.rotulos[ate], valor: fmtNum(item.share_final_pct, 2) + "%" },
           { nome:"MW " + dados.periodos.rotulos[de], valor: fmtMW(item.mw_inicial) },
           { nome:"MW " + dados.periodos.rotulos[ate], valor: fmtMW(item.mw_final) },
           { nome:"Instalações " + dados.periodos.rotulos[de], valor: item.inst_inicial.toLocaleString("pt-BR") },
           { nome:"Instalações " + dados.periodos.rotulos[ate], valor: item.inst_final.toLocaleString("pt-BR") }
         ];
         if (!item.entrante_novo && item.crescimento_relativo_pct !== null){
-          linhasTip.push({ nome:"Crescimento relativo", valor: (item.crescimento_relativo_pct>=0?"+":"") + item.crescimento_relativo_pct.toFixed(0) + "%" });
+          linhasTip.push({ nome:"Crescimento relativo", valor: (item.crescimento_relativo_pct>=0?"+":"") + fmtNum(item.crescimento_relativo_pct, 0) + "%" });
         } else if (item.entrante_novo){
           linhasTip.push({ nome:"Situação", valor:"Marca nova no período" });
         }
@@ -1538,10 +1553,10 @@ function renderLeaderboard(){
     tr.appendChild(el("td", {text:fmtMW(l.mw_final)}));
     tr.appendChild(el("td", {text:l.inst_inicial.toLocaleString("pt-BR")}));
     tr.appendChild(el("td", {text:l.inst_final.toLocaleString("pt-BR")}));
-    tr.appendChild(el("td", {text:l.share_inicial_pct.toFixed(2)+"%"}));
-    tr.appendChild(el("td", {text:l.share_final_pct.toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:fmtNum(l.share_inicial_pct, 2)+"%"}));
+    tr.appendChild(el("td", {text:fmtNum(l.share_final_pct, 2)+"%"}));
     tr.appendChild(el("td", {text:fmtPct(l.delta_pontos_percentuais)}));
-    tr.appendChild(el("td", {text: l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null?"—":(l.crescimento_relativo_pct>=0?"+":"")+l.crescimento_relativo_pct.toFixed(0)+"%")}));
+    tr.appendChild(el("td", {text: l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null?"—":(l.crescimento_relativo_pct>=0?"+":"")+fmtNum(l.crescimento_relativo_pct, 0)+"%")}));
     tbody.appendChild(tr);
   });
   tabela.appendChild(tbody);
@@ -1549,9 +1564,9 @@ function renderLeaderboard(){
   montarBotaoCsv("export-leaderboard", "leaderboard_" + estado.campo + "_" + de + "_" + ate + ".csv",
     ["Marca","MW inicial","MW final","Instalacoes inicial","Instalacoes final","Share inicial %","Share final %","Delta p.p.","Cresc. relativo %"],
     linhasOrdenadas.map(function(l){
-      return [l.marca, l.mw_inicial.toFixed(3), l.mw_final.toFixed(3), l.inst_inicial, l.inst_final, l.share_inicial_pct.toFixed(2),
-        l.share_final_pct.toFixed(2), l.delta_pontos_percentuais.toFixed(2),
-        l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null ? "" : l.crescimento_relativo_pct.toFixed(1))];
+      return [l.marca, fmtNum(l.mw_inicial, 3), fmtNum(l.mw_final, 3), l.inst_inicial, l.inst_final, fmtNum(l.share_inicial_pct, 2),
+        fmtNum(l.share_final_pct, 2), fmtNum(l.delta_pontos_percentuais, 2),
+        l.entrante_novo ? "novo" : (l.crescimento_relativo_pct===null ? "" : fmtNum(l.crescimento_relativo_pct, 1))];
     }));
 }
 
@@ -1589,20 +1604,20 @@ function calcularCategoria(dados, cfg){
   var texto = "";
   if (maior){
     var espMaior = (especialistas[maior.categoria] || [])[0];
-    var pct = (totalGeral>0?maior.total/totalGeral*100:0).toFixed(0);
+    var pct = fmtNum((totalGeral>0?maior.total/totalGeral*100:0), 0);
     var totalTxt = porInstalacoes
       ? maior.total.toLocaleString("pt-BR") + " instalações (" + pct + "% do total, " + fmtMW(maior.total_mw) + ")"
       : fmtMW(maior.total_mw) + " (" + pct + "% da potência em " + maior.instalacoes.toLocaleString("pt-BR") + " instalações)";
     texto = maior.categoria + " é " + cfg.artigo + " maior " + cfg.rotuloSingular +
       (porInstalacoes ? " em quantidade de instalações" : "") + " " + emIntervalo(dados, de, ate) + ", com " + totalTxt +
-      (espMaior ? ", e " + espMaior[0] + " é a marca mais presente nessa " + cfg.rotuloSingular + " (" + espMaior[1].toFixed(1) + "%" +
-        (espMaior[3] ? ", " + espMaior[3].toFixed(1) + "× a participação geral dela" : "") + ")" : "") + ".";
+      (espMaior ? ", e " + espMaior[0] + " é a marca mais presente nessa " + cfg.rotuloSingular + " (" + fmtNum(espMaior[1], 1) + "%" +
+        (espMaior[3] ? ", " + fmtNum(espMaior[3], 1) + "× a participação geral dela" : "") + ")" : "") + ".";
     if (cfg.duasPontas && comValores.length > 1){
       var topo = comValores[comValores.length-1];
       var espTopo = (especialistas[topo.categoria] || [])[0];
       if (espTopo && espTopo[0] !== (espMaior && espMaior[0])){
-        texto += " Já em " + topo.categoria + " quem lidera é " + espTopo[0] + " com " + espTopo[1].toFixed(1) + "%" +
-          (espTopo[3] ? " (" + espTopo[3].toFixed(1) + "× a participação que ela tem no mercado como um todo)" : "") +
+        texto += " Já em " + topo.categoria + " quem lidera é " + espTopo[0] + " com " + fmtNum(espTopo[1], 1) + "%" +
+          (espTopo[3] ? " (" + fmtNum(espTopo[3], 1) + "× a participação que ela tem no mercado como um todo)" : "") +
           ". " + cfg.rotuloPlural + " diferentes, líderes diferentes.";
       }
     }
@@ -1624,7 +1639,9 @@ function renderCategoria(cfg){
   var svg = document.getElementById(cfg.idSvg);
   limpar(svg);
   var n = linhas.length;
-  var W = 1000, ML = 150, MR = 76, MT = 6, MB = 6;
+  // margem esquerda cresce com o maior rótulo (Verdana é larga: ~6,8 px por caractere a 10,5 px)
+  var maiorRotulo = linhas.reduce(function(m, l){ return Math.max(m, String(l.categoria).length); }, 0);
+  var W = 1000, ML = Math.max(150, Math.min(260, Math.round(maiorRotulo * 6.8) + 16)), MR = 76, MT = 6, MB = 6;
   var alturaLinha = 22, gapLinha = 4;
   var H = MT + Math.max(n,1) * (alturaLinha+gapLinha) + MB;
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
@@ -1671,10 +1688,10 @@ function renderCategoria(cfg){
       var lider = esp[0];
       var forte = esp.filter(function(it){ return it[3] != null && it[3] >= 1.3 && it[1] >= 3; })
         .sort(function(a, b){ return b[3] - a[3]; })[0];
-      var txt = " — " + (calc.totalGeral > 0 ? l.total / calc.totalGeral * 100 : 0).toFixed(0) + "% " + base +
-        ". Lidera " + lider[0] + ", com " + lider[1].toFixed(1) + "% de participação";
-      if (forte && forte[0] !== lider[0]) txt += "; " + forte[0] + " se destaca, " + forte[3].toFixed(1) + "× mais forte aqui que no mercado todo";
-      else if (forte) txt += ", " + forte[3].toFixed(1) + "× mais forte aqui que no mercado todo";
+      var txt = " — " + fmtNum((calc.totalGeral > 0 ? l.total / calc.totalGeral * 100 : 0), 0) + "% " + base +
+        ". Lidera " + lider[0] + ", com " + fmtNum(lider[1], 1) + "% de participação";
+      if (forte && forte[0] !== lider[0]) txt += "; " + forte[0] + " se destaca, " + fmtNum(forte[3], 1) + "× mais forte aqui que no mercado todo";
+      else if (forte) txt += ", " + fmtNum(forte[3], 1) + "× mais forte aqui que no mercado todo";
       var li = el("li");
       li.appendChild(el("b", { text: l.categoria }));
       li.appendChild(document.createTextNode(txt + "."));
@@ -1699,13 +1716,13 @@ function renderCategoria(cfg){
       var tr = el("tr");
       tr.appendChild(el("td", { text: idx === 0 ? c : "" }));
       tr.appendChild(el("td", { text: item[0] }));
-      tr.appendChild(el("td", { text: item[1].toFixed(2) + "%" }));
-      tr.appendChild(el("td", { text: item[2].toFixed(2) + "%" }));
-      var tdIdx = el("td", { text: item[3] == null ? "—" : item[3].toFixed(1) + "×" });
+      tr.appendChild(el("td", { text: fmtNum(item[1], 2) + "%" }));
+      tr.appendChild(el("td", { text: fmtNum(item[2], 2) + "%" }));
+      var tdIdx = el("td", { text: item[3] == null ? "—" : fmtNum(item[3], 1) + "×" });
       if (item[3] != null && item[3] >= 1.5) tdIdx.className = "forte";
       tr.appendChild(tdIdx);
       tbody.appendChild(tr);
-      linhasCsv.push([c, item[0], item[1].toFixed(2), item[2].toFixed(2), item[3] == null ? "" : item[3].toFixed(2)]);
+      linhasCsv.push([c, item[0], fmtNum(item[1], 2), fmtNum(item[2], 2), item[3] == null ? "" : fmtNum(item[3], 2)]);
     });
   });
   tabela.appendChild(tbody);
@@ -1800,14 +1817,30 @@ function renderModelos(){
     });
   });
   var total = somarEscalar(dados.periodos[porInstalacoes ? "totais_inst" : "totais_mw"], chaves);
+  // filtro de marca: lista as marcas presentes no intervalo, maiores primeiro
+  var porMarca = {};
+  Object.keys(soma).forEach(function(k){ var m = soma[k]; porMarca[m.marca] = (porMarca[m.marca] || 0) + (porInstalacoes ? m.inst : m.mw); });
+  var marcasLista = Object.keys(porMarca).sort(function(a, b){ return porMarca[b] - porMarca[a]; });
+  if (estado.modelosMarca && marcasLista.indexOf(estado.modelosMarca) < 0) estado.modelosMarca = "";
+  var cont = document.getElementById("filtro-modelos-marca");
+  limpar(cont);
+  var sel = el("select", { id:"filtro-modelos-marca-select", "aria-label":"Filtrar modelos por marca" });
+  [""].concat(marcasLista).forEach(function(m){
+    var opt = document.createElement("option"); opt.value = m; opt.textContent = m || "Todas as marcas"; sel.appendChild(opt);
+  });
+  sel.value = estado.modelosMarca;
+  sel.addEventListener("change", function(){ estado.modelosMarca = sel.value; renderModelos(); });
+  cont.appendChild(sel);
   var n = (DADOS.parametros && DADOS.parametros.modelos && DADOS.parametros.modelos.top_tabela) || 20;
   var lista = Object.keys(soma).map(function(k){ return soma[k]; })
+    .filter(function(m){ return !estado.modelosMarca || m.marca === estado.modelosMarca; })
     .sort(function(a, b){ return porInstalacoes ? b.inst - a.inst : b.mw - a.mw; }).slice(0, n);
   function pct(m){ return total > 0 ? (porInstalacoes ? m.inst : m.mw) / total * 100 : 0; }
   var somaPct = lista.reduce(function(a, m){ return a + pct(m); }, 0);
   document.getElementById("legenda-modelos-caption").textContent =
-    "Os " + lista.length + " modelos mais instalados " + emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + " somam " +
-    somaPct.toFixed(0) + "% " + (porInstalacoes ? "das instalações" : "da potência") + ". Cada linha é uma família de produto: as potências " +
+    "Os " + lista.length + " modelos mais instalados" + (estado.modelosMarca ? " da " + estado.modelosMarca : "") + " " +
+    emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + " somam " +
+    fmtNum(somaPct, 0) + "% " + (porInstalacoes ? "das instalações" : "da potência") + ". Cada linha é uma família de produto: as potências " +
     "da mesma linha somam juntas (ex.: CS6W-545MS e CS6W-550MS), e o nome mostrado é a grafia mais comum no cadastro.";
   var cab = ["#", "Modelo", "Marca", ehModulo ? "Tecnologia" : "Tipo"].concat(ehModulo ? ["Bifacial"] : []).concat(["MW", "Instalações", "% do mercado"]);
   var tabela = document.getElementById("tabela-modelos");
@@ -1820,14 +1853,14 @@ function renderModelos(){
     var bif = m.bif && m.bif !== NAO_CLASSIFICADO ? m.bif : "—";
     var tec = m.tec && m.tec !== NAO_CLASSIFICADO ? m.tec : "—";
     var celulas = [String(i + 1), m.exemplo, m.marca, tec].concat(ehModulo ? [bif] : [])
-      .concat([fmtMW(m.mw), Math.round(m.inst).toLocaleString("pt-BR"), pct(m).toFixed(2) + "%"]);
+      .concat([fmtMW(m.mw), Math.round(m.inst).toLocaleString("pt-BR"), fmtNum(pct(m), 2) + "%"]);
     var tr = el("tr");
     celulas.forEach(function(v){ tr.appendChild(el("td", { text:v })); });
     tbody.appendChild(tr);
-    linhasCsv.push([i + 1, m.exemplo, m.marca, tec].concat(ehModulo ? [bif] : []).concat([m.mw.toFixed(3), Math.round(m.inst), pct(m).toFixed(3)]));
+    linhasCsv.push([i + 1, m.exemplo, m.marca, tec].concat(ehModulo ? [bif] : []).concat([fmtNum(m.mw, 3), Math.round(m.inst), fmtNum(pct(m), 3)]));
   });
   tabela.appendChild(tbody);
-  montarBotaoCsv("export-modelos", "modelos_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
+  montarBotaoCsv("export-modelos", "modelos_" + estado.campo + (estado.modelosMarca ? "_" + estado.modelosMarca.replace(/\W+/g, "") : "") + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
     cab.map(function(h){ return h === "MW" ? "MW" : h; }), linhasCsv);
 }
 
@@ -1876,7 +1909,7 @@ function renderTecnologiaAnual(dados, ehModulo){
   var temParcial = mix.parcial !== null;
   function rotuloAno(a){ return a.replace("-Q", " T") + (a === mix.parcial ? "*" : ""); }
   function rotuloEixo(a){ return trimestral ? (/-Q1$/.test(a) ? a.slice(0, 4) : "") : rotuloAno(a); }
-  var anoParcial = mix.parcial, ateTxt = " (até " + mix.ate + ")";
+  var anoParcial = mix.parcial, ateTxt = " (até " + fmtMes(mix.ate) + ")";
 
   var leg = document.getElementById("legenda-tec-anual");
   limpar(leg);
@@ -1911,7 +1944,7 @@ function renderTecnologiaAnual(dados, ehModulo){
     svg.appendChild(hit);
     anexarHover(hit, function(mx, my){
       var tips = cats.slice().reverse().map(function(c){
-        return { nome:c, cor:cor(c), valor: pct(c, i).toFixed(1) + "% · " + fmtValor(serie[c][i]) };
+        return { nome:c, cor:cor(c), valor: fmtNum(pct(c, i), 1) + "% · " + fmtValor(serie[c][i]) };
       });
       mostrarTooltip(mx, my, rotuloAno(a) + (a === anoParcial ? ateTxt : ""), tips, fmtValor(totais[i]));
     });
@@ -1922,9 +1955,9 @@ function renderTecnologiaAnual(dados, ehModulo){
   var lf = lider(iF), l0 = lider(i0), base = porInstalacoes ? "das instalações" : "da potência instalada";
   var fim = rotuloAno(anos[iF]).replace("*", ""), inicio = rotuloAno(anos[i0]);
   var texto = "Em " + fim + (temParcial ? ateTxt : "") + ", " + lf + " responde por " +
-    pct(lf, iF).toFixed(0) + "% " + base + (l0 !== lf ? "; em " + inicio + ", a maior era " + l0 + " (" + pct(l0, i0).toFixed(0) + "%)"
-      : " (" + pct(lf, i0).toFixed(0) + "% em " + inicio + ")") + ". " +
-    pct(NAO_CLASSIFICADO, iF).toFixed(0) + "% de " + fim + " ainda está sem classificação. Brasil inteiro, " +
+    fmtNum(pct(lf, iF), 0) + "% " + base + (l0 !== lf ? "; em " + inicio + ", a maior era " + l0 + " (" + fmtNum(pct(l0, i0), 0) + "%)"
+      : " (" + fmtNum(pct(lf, i0), 0) + "% em " + inicio + ")") + ". " +
+    fmtNum(pct(NAO_CLASSIFICADO, iF), 0) + "% de " + fim + " ainda está sem classificação. Brasil inteiro, " +
     (trimestral ? "trimestre a trimestre" : "ano a ano") + " — este gráfico não segue o filtro de intervalo.";
   document.getElementById("legenda-tec-anual-caption").textContent = texto;
 
@@ -1945,9 +1978,9 @@ function renderTecnologiaAnual(dados, ehModulo){
   anos.forEach(function(a, i){
     var tr = el("tr");
     tr.appendChild(el("td", { text: rotuloAno(a) }));
-    cats.forEach(function(c){ tr.appendChild(el("td", { text: pct(c, i).toFixed(1) + "%" })); });
+    cats.forEach(function(c){ tr.appendChild(el("td", { text: fmtNum(pct(c, i), 1) + "%" })); });
     tbody.appendChild(tr);
-    linhasCsv.push([rotuloAno(a)].concat(cats.map(function(c){ return pct(c, i).toFixed(2); })));
+    linhasCsv.push([rotuloAno(a)].concat(cats.map(function(c){ return fmtNum(pct(c, i), 2); })));
   });
   tabela.appendChild(tbody);
   montarBotaoCsv("export-tec-anual", "tecnologia_" + estado.tecGranularidade + "_" + estado.campo + "_" + (porInstalacoes ? "instalacoes" : "mw") + ".csv",
@@ -2176,7 +2209,7 @@ function renderGeoMunicipios(dados, de, ate, uf){
   document.getElementById("geo-caption").textContent = linhas.length
     ? linhas[0].nome + " lidera entre os " + linhas.length + " municípios de " + uf + " " + emIntervalo(dados, de, ate) + ", com " +
       fmtMW(linhas[0].total_mw) + " em " + linhas[0].inst.toLocaleString("pt-BR") + " instalações (" +
-      pctPrincipal.toFixed(1) + "% do estado em " + (porInstalacoes ? "instalações" : "MW") + "), e " +
+      fmtNum(pctPrincipal, 1) + "% do estado em " + (porInstalacoes ? "instalações" : "MW") + "), e " +
       (linhas[0].lideres[0] || "—") + " é a marca líder no município."
     : "Nenhum município de " + uf + " com instalação identificada " + emIntervalo(dados, de, ate) + ".";
 
@@ -2197,7 +2230,7 @@ function renderGeoMunicipios(dados, de, ate, uf){
     tr.appendChild(el("td", {text:m.nome}));
     tr.appendChild(el("td", {text:fmtMW(m.total_mw)}));
     tr.appendChild(el("td", {text:m.inst.toLocaleString("pt-BR")}));
-    tr.appendChild(el("td", {text:pct.toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:fmtNum(pct, 2)+"%"}));
     tr.appendChild(el("td", {text:m.lideres[0] || "—"}));
     tr.appendChild(el("td", {text:m.lideres[1] || "—"}));
     tr.appendChild(el("td", {text:m.lideres[2] || "—"}));
@@ -2209,7 +2242,7 @@ function renderGeoMunicipios(dados, de, ate, uf){
     ["#","Municipio","MW","Instalacoes","% do estado","Lider 1","Lider 2","Lider 3"],
     linhas.map(function(m, i){
       var pct = porInstalacoes ? (totalUfInst>0?m.inst/totalUfInst*100:0) : (totalUf>0?m.total_mw/totalUf*100:0);
-      return [i+1, m.nome, m.total_mw.toFixed(3), m.inst, pct.toFixed(2),
+      return [i+1, m.nome, fmtNum(m.total_mw, 3), m.inst, fmtNum(pct, 2),
         m.lideres[0]||"", m.lideres[1]||"", m.lideres[2]||""];
     }));
 }
@@ -2249,7 +2282,7 @@ function renderRanking(){
   var top3Soma = linhas.slice().sort(function(a,b){ return b.mw - a.mw; }).slice(0, 3).reduce(function(a,l){ return a+l.share; }, 0);
   document.getElementById("legenda-ranking-caption").textContent =
     linhas.length + " marcas de " + (estado.campo === "modulo" ? "módulo" : "inversor") + " disputam espaço " +
-    emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + "; as 3 maiores em MW somam " + top3Soma.toFixed(0) + "% do mercado.";
+    emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + "; as 3 maiores em MW somam " + fmtNum(top3Soma, 0) + "% do mercado.";
 
   var tabela = document.getElementById("tabela-ranking");
   limpar(tabela);
@@ -2263,7 +2296,7 @@ function renderRanking(){
     tr.appendChild(el("td", {text:l.marca}));
     tr.appendChild(el("td", {text:fmtMW(l.mw)}));
     tr.appendChild(el("td", {text:l.inst.toLocaleString("pt-BR")}));
-    tr.appendChild(el("td", {text:l.share.toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:fmtNum(l.share, 2)+"%"}));
     tbody.appendChild(tr);
   });
   if (limite < linhas.length){
@@ -2277,7 +2310,7 @@ function renderRanking(){
     trResto.appendChild(el("td", {text:"Outras " + restantes.length + " marcas identificadas (clique para ver quais)"}));
     trResto.appendChild(el("td", {text:fmtMW(restoMw)}));
     trResto.appendChild(el("td", {text:restoInst.toLocaleString("pt-BR")}));
-    trResto.appendChild(el("td", {text:(totalMw>0?restoMw/totalMw*100:0).toFixed(2)+"%"}));
+    trResto.appendChild(el("td", {text:fmtNum((totalMw>0?restoMw/totalMw*100:0), 2)+"%"}));
     var alternar = function(){ estado.restoExpandido = !estado.restoExpandido; renderRanking(); };
     trResto.addEventListener("click", alternar);
     trResto.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); alternar(); } });
@@ -2290,7 +2323,7 @@ function renderRanking(){
         tr.appendChild(el("td", {text:l.marca}));
         tr.appendChild(el("td", {text:fmtMW(l.mw)}));
         tr.appendChild(el("td", {text:l.inst.toLocaleString("pt-BR")}));
-        tr.appendChild(el("td", {text:l.share.toFixed(2)+"%"}));
+        tr.appendChild(el("td", {text:fmtNum(l.share, 2)+"%"}));
         tbody.appendChild(tr);
       });
     }
@@ -2300,14 +2333,14 @@ function renderRanking(){
   trNaoInf.appendChild(el("td", {text:"Não identificado / não informado"}));
   trNaoInf.appendChild(el("td", {text:fmtMW(naoInformadoMw)}));
   trNaoInf.appendChild(el("td", {text:naoInformadoInst.toLocaleString("pt-BR")}));
-  trNaoInf.appendChild(el("td", {text:(totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)+"%"}));
+  trNaoInf.appendChild(el("td", {text:fmtNum((totalMw>0?naoInformadoMw/totalMw*100:0), 2)+"%"}));
   tbody.appendChild(trNaoInf);
   tabela.appendChild(tbody);
 
   montarBotaoCsv("export-ranking", "ranking_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
     ["#","Marca","MW","Instalacoes","Participacao %"],
-    linhas.map(function(l, i){ return [i+1, l.marca, l.mw.toFixed(3), l.inst, l.share.toFixed(2)]; })
-      .concat([["", "Nao identificado / nao informado", naoInformadoMw.toFixed(3), naoInformadoInst, (totalMw>0?naoInformadoMw/totalMw*100:0).toFixed(2)]]));
+    linhas.map(function(l, i){ return [i+1, l.marca, fmtNum(l.mw, 3), l.inst, fmtNum(l.share, 2)]; })
+      .concat([["", "Nao identificado / nao informado", fmtNum(naoInformadoMw, 3), naoInformadoInst, fmtNum((totalMw>0?naoInformadoMw/totalMw*100:0), 2)]]));
 
   document.getElementById("explicacao-nao-identificado").textContent =
     "Amostra dos maiores registros de fabricante de " + (estado.campo === "modulo" ? "módulo" : "inversor") +
@@ -2323,7 +2356,7 @@ function renderRanking(){
     var tr = el("tr");
     tr.appendChild(el("td", {text:a.exemplo_bruto}));
     tr.appendChild(el("td", {text:fmtMW(a.mw)}));
-    tr.appendChild(el("td", {text:a.pct_do_total_kw.toFixed(2)+"%"}));
+    tr.appendChild(el("td", {text:fmtNum(a.pct_do_total_kw, 2)+"%"}));
     tbodyNi.appendChild(tr);
   });
   tabelaNi.appendChild(tbodyNi);
@@ -2342,7 +2375,7 @@ function renderTudo(){
   sub.appendChild(strong);
   sub.appendChild(document.createTextNode(
     ", em MW de potência instalada. Os últimos " + descarte +
-    " mês(es) são preliminares — cadastro ainda em processamento pela ANEEL — e ficam fora das comparações; referência mais recente: " + ultimo + "."
+    " mês(es) são preliminares — cadastro ainda em processamento pela ANEEL — e ficam fora das comparações; referência mais recente: " + fmtMes(ultimo) + "."
   ));
 
   montarFiltrosGlobais();
@@ -2438,9 +2471,9 @@ function gerarConteudoRelatorio(){
 
   var itens = [];
   if (ranking[0]){
-    itens.push({ rotulo:"Líder", texto: ranking[0].marca + ", " + (totalMw>0?ranking[0].mw/totalMw*100:0).toFixed(1) + "% do mercado (" + fmtMW(ranking[0].mw) + ")" });
+    itens.push({ rotulo:"Líder", texto: ranking[0].marca + ", " + fmtNum((totalMw>0?ranking[0].mw/totalMw*100:0), 1) + "% do mercado (" + fmtMW(ranking[0].mw) + ")" });
   }
-  itens.push({ rotulo:"Concentração", texto: "as 3 maiores marcas somam " + top3Pct.toFixed(0) + "% do total instalado" });
+  itens.push({ rotulo:"Concentração", texto: "as 3 maiores marcas somam " + fmtNum(top3Pct, 0) + "% do total instalado" });
   var cmpResumo = extremosComparacao(dados);
   if (cmpResumo.de !== cmpResumo.ate){
     var lb = calcularLeaderboard(dados, cmpResumo.de, cmpResumo.ate);
@@ -2457,7 +2490,7 @@ function gerarConteudoRelatorio(){
   if (dados.periodos.faixa_composicao && ordemFaixas.length){
     var espFaixa = especialistasNoIntervalo(dados, "faixa_composicao", chaves, somarPerfil(dados.periodos.faixa_perfil, chaves), false);
     var resid = ordemFaixas.slice(0, 2).filter(function(f){ return (espFaixa[f] || []).length; }).map(function(f){
-      var l = espFaixa[f][0]; return f + ": " + l[0] + " (" + l[1].toFixed(1) + "%)";
+      var l = espFaixa[f][0]; return f + ": " + l[0] + " (" + fmtNum(l[1], 1) + "%)";
     });
     if (resid.length) itens.push({ rotulo:"Residencial", texto: "lidera " + resid.join("; ") });
   }
@@ -2475,17 +2508,17 @@ function gerarConteudoRelatorio(){
       if (mudancas[0]){
         var mv = mudancas[0];
         itens.push({ rotulo: estado.campo === "modulo" ? "Tecnologia" : "Tipo de inversor",
-          texto: mv.c + " foi de " + mv.pDe.toFixed(0) + "% para " + mv.pAte.toFixed(0) + "% da potência (" + rotuloExtenso(dados, cmpResumo.de) + " → " + rotuloExtenso(dados, cmpResumo.ate) + ")" });
+          texto: mv.c + " foi de " + fmtNum(mv.pDe, 0) + "% para " + fmtNum(mv.pAte, 0) + "% da potência (" + rotuloExtenso(dados, cmpResumo.de) + " → " + rotuloExtenso(dados, cmpResumo.ate) + ")" });
       }
     }
   }
   itens.push({ rotulo:"Total instalado", texto: fmtMW(totalMw) + " em " + totalInst.toLocaleString("pt-BR") + " instalações no período" });
-  itens.push({ rotulo:"Identificação", texto: identificadoPct.toFixed(1) + "% do volume com marca identificada com segurança" });
+  itens.push({ rotulo:"Identificação", texto: fmtNum(identificadoPct, 1) + "% do volume com marca identificada com segurança" });
 
   var lead = ranking[0]
     ? ranking[0].marca + " lidera o mercado de " + (estado.campo==="modulo"?"módulos":"inversores") + " " + emIntervalo(dados, de, ate) +
-      ", com " + (totalMw>0?ranking[0].mw/totalMw*100:0).toFixed(1) + "% de participação. As 3 maiores marcas juntas somam " +
-      top3Pct.toFixed(0) + "% do total instalado."
+      ", com " + fmtNum((totalMw>0?ranking[0].mw/totalMw*100:0), 1) + "% de participação. As 3 maiores marcas juntas somam " +
+      fmtNum(top3Pct, 0) + "% do total instalado."
     : "Nenhuma marca identificada no intervalo selecionado.";
 
   return { lead: lead, itens: itens, de: de, ate: ate };

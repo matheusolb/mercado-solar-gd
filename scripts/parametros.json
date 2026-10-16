@@ -31,8 +31,9 @@
   },
 
   "modelos": {
-    "_leia_me": "top_por_periodo = quantas famílias de modelo o painel guarda por período (mais = soma de intervalos mais exata, payload maior). top_tabela = quantas aparecem na tabela.",
+    "_leia_me": "top_por_periodo = quantas famílias de modelo o painel guarda por período (mais = soma de intervalos mais exata, payload maior); top_por_marca = além disso, quantas de cada marca (para o filtro de marca da tabela); top_tabela = quantas aparecem na tabela.",
     "top_por_periodo": 200,
+    "top_por_marca": 10,
     "top_tabela": 20
   }
 }

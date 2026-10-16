@@ -81,7 +81,7 @@ def carregar_agregado_modelo(campo: str) -> pd.DataFrame | None:
     return dm
 
 
-def top_modelos(dm: pd.DataFrame, meses: list[str], n: int) -> list[list]:
+def top_modelos(dm: pd.DataFrame, meses: list[str], n: int, n_por_marca: int = 0) -> list[list]:
     """Famílias de modelo mais instaladas no período: [marca, família, exemplo, tecnologia,
     bifacial, mw, instalações]. Guarda n por período (parametros.json) -- somando vários
     períodos, uma família fora do top-n de algum deles pode ficar levemente subestimada."""
@@ -89,7 +89,10 @@ def top_modelos(dm: pd.DataFrame, meses: list[str], n: int) -> list[list]:
     if sub.empty:
         return []
     g = sub.groupby(["marca", "familia"]).agg(kw=("soma_kw", "sum"), inst=("qtd_instalacoes", "sum"))
-    g = g.sort_values("kw", ascending=False).head(n)
+    g = g.sort_values("kw", ascending=False)
+    # top-n geral + top-n_por_marca de cada marca (filtro de marca da tabela)
+    por_marca = g.groupby(level="marca", group_keys=False).head(n_por_marca) if n_por_marca else g.iloc[:0]
+    g = g.loc[g.index.isin(g.head(n).index) | g.index.isin(por_marca.index)]
     def dominante(coluna):
         if coluna not in sub:
             return {}
@@ -487,7 +490,8 @@ def montar_payload_campo(campo: str) -> dict:
         seg_perfil[chave] = perfil_categoria(df, meses, "segmento", segmentos_ordem)
         seg_composicao[chave] = composicao_categoria(df, meses, "segmento", segmentos_ordem, municipios_marcas_indice)
         if dm is not None:
-            modelos_top[chave] = top_modelos(dm, meses, PARAMETROS["modelos"]["top_por_periodo"])
+            modelos_top[chave] = top_modelos(dm, meses, PARAMETROS["modelos"]["top_por_periodo"],
+                                             PARAMETROS["modelos"].get("top_por_marca", 0))
         uf_composicao[chave] = composicao_categoria(df, meses, "SigUF", ufs_todas, municipios_marcas_indice)
         dist_composicao_total[chave] = composicao_categoria(df, meses, "distribuidora", distribuidoras_todas, municipios_marcas_indice)
 
