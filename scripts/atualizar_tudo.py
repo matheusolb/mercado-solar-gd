@@ -25,6 +25,11 @@ import montar_agregado_marcas
 import montar_mapa_marcas
 import montar_payload_dashboard
 
+try:  # interno, fora do repositorio publico: planilha de categorias de marca do compras
+    import atualizar_categorias_marca
+except ImportError:
+    atualizar_categorias_marca = None
+
 
 def rodar_etapa(numero: str, nome: str, funcao, *args) -> None:
     print(f"\n{'=' * 80}\n{numero} {nome}\n{'=' * 80}")
@@ -48,6 +53,8 @@ def main():
     rodar_etapa("2/4", "Agregacao", montar_agregado_marcas.main)
     rodar_etapa("3/4", "Payload do dashboard", montar_payload_dashboard.main)
     rodar_etapa("4/4", "Dashboard HTML", gerar_dashboard_html.main)
+    if atualizar_categorias_marca:
+        rodar_etapa("+", "Planilha de categorias de marca (marcas novas)", atualizar_categorias_marca.main)
     if args.sqlite:
         rodar_etapa("5/5", "Banco SQLite (Streamlit)", exportar_sqlite.main)
 
