@@ -147,6 +147,11 @@
   .eixo-txt{fill:var(--tinta-muda); font-size:10.5px;}
   .eixo-txt.forte{fill:var(--acento); font-weight:700;}
   .eixo-linha{stroke:var(--grade); stroke-width:1;}
+  .indice-secoes{display:flex; flex-wrap:wrap; gap:6px;}
+  .indice-secoes a{font-size:12px; padding:4px 10px; border:1px solid var(--borda); border-radius:999px; color:var(--tinta-2); text-decoration:none; background:var(--superficie);}
+  .indice-secoes a:hover{background:var(--acento-fraco); color:var(--tinta);}
+  .indice-secoes a:focus-visible{outline:2px solid var(--acento); outline-offset:1px;}
+  section.card, .divisor-secao{scroll-margin-top:130px;}
   .destaques{margin:12px 0 4px; padding-left:18px; display:flex; flex-direction:column; gap:5px; font-size:13px; line-height:1.5; color:var(--tinta-2);}
   .destaques b{color:var(--tinta);}
   .divisor-secao{padding-top:14px; border-top:1px solid var(--grade);}
@@ -263,7 +268,8 @@
       <div class="filtro-grupo" id="filtro-categoria-metrica"></div>
     </div>
   </div>
-  <p class="dash-sub filtros-nota">Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e "Quem ganhou e quem perdeu espaço" compara o início com o fim. O painel abre no recorte recente; o atalho "Histórico" mostra a série completa desde 2020. Estado direciona diretamente ao município em "Comportamento geográfico" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, "Quem ganhou e quem perdeu espaço", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações.</p>
+
+  <nav class="indice-secoes" id="indice-secoes" aria-label="Seções do painel"></nav>
 
   <section class="card relatorio" id="relatorio">
     <div class="relatorio-acoes">
@@ -324,6 +330,15 @@
 
   <section class="card">
     <div class="card-head">
+      <h2>Modelos mais instalados</h2>
+      <p class="card-caption" id="legenda-modelos-caption"></p>
+    </div>
+    <div class="tabela-export" id="export-modelos"></div>
+    <div class="table-scroll"><table class="dados" id="tabela-modelos"></table></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
       <h2>Comparar marcas específicas</h2>
       <p class="card-caption" id="legenda-marca-especifica-caption"></p>
     </div>
@@ -343,6 +358,7 @@
       <p class="card-caption" id="legenda-tec-anual-caption"></p>
     </div>
     <div class="filtros">
+      <div class="filtro-grupo" id="filtro-tec-dimensao"></div>
       <div class="filtro-grupo" id="filtro-tec-granularidade"></div>
     </div>
     <div class="legend" id="legenda-tec-anual"></div>
@@ -387,6 +403,23 @@
       <p class="card-caption" id="explicacao-especialistas-faixa" style="margin-top:8px;"></p>
       <div class="tabela-export" id="export-faixa"></div>
       <div class="table-scroll"><table class="dados" id="tabela-faixa"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Comportamento por público-alvo</h2>
+      <p class="card-caption" id="legenda-seg-caption"></p>
+    </div>
+    <div class="legend" id="legenda-seg"></div>
+    <div class="chart-wrap" id="wrap-seg">
+      <svg id="svg-seg" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <ul class="destaques" id="destaques-seg"></ul>
+    <details class="table-toggle"><summary>Tabela completa: força relativa das marcas em cada público</summary>
+      <p class="card-caption" id="explicacao-especialistas-seg" style="margin-top:8px;"></p>
+      <div class="tabela-export" id="export-seg"></div>
+      <div class="table-scroll"><table class="dados" id="tabela-seg"></table></div>
     </details>
   </section>
 
@@ -503,7 +536,7 @@ var DADOS = /*__DASHBOARD_DATA_JSON__*/{};
 
 var CORES = ["var(--serie-1)","var(--serie-2)","var(--serie-3)","var(--serie-4)","var(--serie-5)","var(--serie-6)","var(--serie-7)","var(--serie-8)","var(--serie-9)","var(--serie-10)","var(--outros)","var(--nao-informado)"];
 
-var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, tecGranularidade:"anual", estadoGlobal:null, categoriaMetrica:"mw" };
+var estado = { campo:"modulo", granularidade:"mensal", intervaloDe:null, intervaloAte:null, metrica:"pontos", topN:"15", restoExpandido:false, marcasComparadas:null, tecGranularidade:"anual", tecDimensao:"tecnologia", estadoGlobal:null, categoriaMetrica:"mw" };
 // Vem do payload (montar_payload_dashboard.py); o fallback so cobre a preview
 // crua do template, sem payload embutido.
 var TOP_N_COR = DADOS.top_n_cor || 10;
@@ -883,7 +916,7 @@ function montarFiltrosGlobais(){
 
   function rerenderTudoQueDependeDoIntervalo(){
     renderTendencia(); renderMarcaEspecifica(); renderLeaderboard();
-    renderRanking(); renderTecnologia(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
+    renderRanking(); renderModelos(); renderTecnologia(); renderFaixa(); renderSegmento(); renderClasse(); renderTarifa(); renderDistribuidora(); renderGeografia();
     atualizarRelatorioSeAberto();
   }
   montarSeletorAno(document.getElementById("filtro-intervalo-de"), dados, estado.intervaloDe, function(v){
@@ -1721,12 +1754,92 @@ function renderDistribuidora(){
 
 var NAO_CLASSIFICADO = "Não classificado";
 
+// Índice clicável das seções (chips no topo) -- montado uma vez a partir dos títulos.
+function montarIndiceSecoes(){
+  var nav = document.getElementById("indice-secoes");
+  if (!nav) return;
+  limpar(nav);
+  document.querySelectorAll("section.card > .card-head > h2, .divisor-secao > h2").forEach(function(h, i){
+    var alvo = h.closest("section.card") || h.closest(".divisor-secao");
+    if (!alvo.id) alvo.id = "secao-" + i;
+    var curtos = { "titulo-tec-anual": "Evolução da tecnologia", "titulo-tec": "Tecnologia por marca" };
+    var texto = curtos[h.id] || ({ "Comportamento geográfico": "Geografia", "Ranking completo de marcas": "Ranking",
+      "Cada marca, individualmente": "Cada marca", "Quem ganhou e quem perdeu espaço": "Quem ganhou e perdeu",
+      "Comparar marcas específicas": "Comparar marcas" })[h.textContent] ||
+      h.textContent.replace(/^Comportamento por /, "").replace(/ ao longo do tempo$/, "");
+    var a = el("a", { href: "#" + alvo.id, text: texto.charAt(0).toUpperCase() + texto.slice(1) });
+    nav.appendChild(a);
+  });
+}
+
+function renderSegmento(){
+  var dados = DADOS.campos[estado.campo];
+  if (!dados.segmentos_ordem) return;
+  renderCategoria({
+    chaveOrdem:"segmentos_ordem", chaveMw:"segmento_mw", chaveInst:"segmento_inst", chavePerfil:"segmento_perfil", chaveComposicao:"segmento_composicao",
+    idLegenda:"legenda-seg", idCaption:"legenda-seg-caption", idSvg:"svg-seg",
+    idExplicacao:"explicacao-especialistas-seg", idTabela:"tabela-seg", idExport:"export-seg", rotuloColuna:"Público-alvo",
+    artigo:"a", rotuloSingular:"fatia do mercado", rotuloPlural:"Fatias", duasPontas:false,
+  });
+}
+
+// Modelos (famílias: mesma linha de produto, potências diferentes somadas) mais
+// instalados no intervalo, somando o top-N de cada período guardado no payload.
+function renderModelos(){
+  var dados = DADOS.campos[estado.campo];
+  if (!dados.periodos.modelos_top) return;
+  var ehModulo = estado.campo === "modulo";
+  var porInstalacoes = estado.categoriaMetrica === "instalacoes";
+  var chaves = chavesNoIntervalo(estado.intervaloDe, estado.intervaloAte);
+  var soma = {};
+  chaves.forEach(function(chave){
+    (dados.periodos.modelos_top[chave] || []).forEach(function(it){
+      var k = it[0] + "|" + it[1];
+      var a = soma[k] || (soma[k] = { marca: it[0], exemplo: it[2], tec: it[3], bif: it[4], mw: 0, inst: 0 });
+      a.mw += it[5]; a.inst += it[6];
+    });
+  });
+  var total = somarEscalar(dados.periodos[porInstalacoes ? "totais_inst" : "totais_mw"], chaves);
+  var n = (DADOS.parametros && DADOS.parametros.modelos && DADOS.parametros.modelos.top_tabela) || 20;
+  var lista = Object.keys(soma).map(function(k){ return soma[k]; })
+    .sort(function(a, b){ return porInstalacoes ? b.inst - a.inst : b.mw - a.mw; }).slice(0, n);
+  function pct(m){ return total > 0 ? (porInstalacoes ? m.inst : m.mw) / total * 100 : 0; }
+  var somaPct = lista.reduce(function(a, m){ return a + pct(m); }, 0);
+  document.getElementById("legenda-modelos-caption").textContent =
+    "Os " + lista.length + " modelos mais instalados " + emIntervalo(dados, estado.intervaloDe, estado.intervaloAte) + " somam " +
+    somaPct.toFixed(0) + "% " + (porInstalacoes ? "das instalações" : "da potência") + ". Cada linha é uma família de produto: as potências " +
+    "da mesma linha somam juntas (ex.: CS6W-545MS e CS6W-550MS), e o nome mostrado é a grafia mais comum no cadastro.";
+  var cab = ["#", "Modelo", "Marca", ehModulo ? "Tecnologia" : "Tipo"].concat(ehModulo ? ["Bifacial"] : []).concat(["MW", "Instalações", "% do mercado"]);
+  var tabela = document.getElementById("tabela-modelos");
+  limpar(tabela);
+  var thead = el("thead"), trh = el("tr");
+  cab.forEach(function(h){ trh.appendChild(el("th", { text:h })); });
+  thead.appendChild(trh); tabela.appendChild(thead);
+  var tbody = el("tbody"), linhasCsv = [];
+  lista.forEach(function(m, i){
+    var bif = m.bif && m.bif !== NAO_CLASSIFICADO ? m.bif : "—";
+    var tec = m.tec && m.tec !== NAO_CLASSIFICADO ? m.tec : "—";
+    var celulas = [String(i + 1), m.exemplo, m.marca, tec].concat(ehModulo ? [bif] : [])
+      .concat([fmtMW(m.mw), Math.round(m.inst).toLocaleString("pt-BR"), pct(m).toFixed(2) + "%"]);
+    var tr = el("tr");
+    celulas.forEach(function(v){ tr.appendChild(el("td", { text:v })); });
+    tbody.appendChild(tr);
+    linhasCsv.push([i + 1, m.exemplo, m.marca, tec].concat(ehModulo ? [bif] : []).concat([m.mw.toFixed(3), Math.round(m.inst), pct(m).toFixed(3)]));
+  });
+  tabela.appendChild(tbody);
+  montarBotaoCsv("export-modelos", "modelos_" + estado.campo + "_" + estado.intervaloDe + "_" + estado.intervaloAte + ".csv",
+    cab.map(function(h){ return h === "MW" ? "MW" : h; }), linhasCsv);
+}
+
 function renderTecnologia(){
   var dados = DADOS.campos[estado.campo];
   if (!dados.tecnologias_ordem) return;
   var ehModulo = estado.campo === "modulo";
   document.getElementById("titulo-tec-anual").textContent = ehModulo ? "Tecnologia de célula ao longo do tempo" : "Tipo de inversor ao longo do tempo";
   document.getElementById("titulo-tec").textContent = ehModulo ? "Comportamento por tecnologia de célula" : "Comportamento por tipo de inversor";
+  var temBifacial = ehModulo && !!dados.bifacial_anual;
+  document.getElementById("filtro-tec-dimensao").hidden = !temBifacial;
+  if (temBifacial && estado.tecDimensao === "bifacial") document.getElementById("titulo-tec-anual").textContent = "Módulos bifaciais ao longo do tempo";
   renderTecnologiaAnual(dados, ehModulo);
   renderCategoria({
     chaveOrdem:"tecnologias_ordem", chaveMw:"tecnologia_mw", chaveInst:"tecnologia_inst", chavePerfil:"tecnologia_perfil", chaveComposicao:"tecnologia_composicao",
@@ -1745,8 +1858,10 @@ function renderTecnologia(){
 // categorias têm ordem), sem reaproveitar as cores de marca.
 function renderTecnologiaAnual(dados, ehModulo){
   var trimestral = estado.tecGranularidade === "trimestral";
-  var mix = trimestral ? dados.tecnologia_trimestral : dados.tecnologia_anual;
-  var cats = dados.tecnologias_ordem, anos = mix.periodos;
+  var bifacial = ehModulo && estado.tecDimensao === "bifacial" && !!dados.bifacial_anual;
+  var mix = bifacial ? (trimestral ? dados.bifacial_trimestral : dados.bifacial_anual)
+                     : (trimestral ? dados.tecnologia_trimestral : dados.tecnologia_anual);
+  var cats = bifacial ? dados.bifacial_ordem : dados.tecnologias_ordem, anos = mix.periodos;
   var porInstalacoes = estado.categoriaMetrica === "instalacoes";
   var serie = porInstalacoes ? mix.inst : mix.mw;
   var fmtValor = porInstalacoes ? function(v){ return Math.round(v).toLocaleString("pt-BR") + " instalações"; } : fmtMW;
@@ -1813,7 +1928,9 @@ function renderTecnologiaAnual(dados, ehModulo){
     (trimestral ? "trimestre a trimestre" : "ano a ano") + " — este gráfico não segue o filtro de intervalo.";
   document.getElementById("legenda-tec-anual-caption").textContent = texto;
 
-  document.getElementById("explicacao-tec-anual").textContent = (ehModulo
+  document.getElementById("explicacao-tec-anual").textContent = (bifacial
+    ? "Bifacial vem do código do modelo (ex.: sufixo -AG da Canadian, DEG/NEG da Trina, JAM..D da JA, /DG da DAH), por regras por fabricante; policristalino conta como monofacial. É uma dimensão à parte da tecnologia de célula: existe PERC bifacial e TOPCon monofacial. "
+    : ehModulo
     ? "A tecnologia vem do código do modelo do módulo, por regras por fabricante (datasheets e padrão de nomenclatura). Para revendas que não informam a tecnologia no código, ela é inferida pela potência dentro do formato (em 144 meias-células, o PERC chega a ~560 W; acima de 570 W é N-type). "
     : "O tipo vem do código do modelo do inversor, por regras por fabricante. \"String com opção de bateria\" é o inversor on-grid que já aceita bateria sem troca de equipamento (ex.: Huawei L1/LC0, WEG SIW300H) — mede o parque preparado para armazenamento, não baterias instaladas, que a ANEEL não registra. ") +
     "\"Não classificado\" junta modelo vazio, marca não identificada e modelos ainda não mapeados." +
@@ -2233,7 +2350,9 @@ function renderTudo(){
   renderMarcaEspecifica();
   renderLeaderboard();
   renderRanking();
+  renderModelos();
   renderTecnologia();
+  renderSegmento();
   renderFaixa();
   renderClasse();
   renderTarifa();
@@ -2250,6 +2369,7 @@ function renderTudo(){
 function montarPainelAjuda(){
   var painel = document.getElementById("painel-ajuda");
   var itens = [
+    ["Como os filtros funcionam", "Intervalo aplica-se ao dashboard inteiro: com os dois extremos iguais, cada seção mostra um período específico; alargando o intervalo, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia somam o período inteiro, e \"Quem ganhou e quem perdeu espaço\" compara o início com o fim. O painel abre no recorte recente; o atalho \"Histórico\" mostra a série completa desde 2020. Estado direciona diretamente ao município em \"Comportamento geográfico\" — a navegação também pode ser feita clicando, a partir do Brasil. Métrica alterna o painel inteiro entre MW e quantidade de instalações (Tendência, Cada marca, Comparar marcas, Ranking, Tecnologia, Faixa, Classe, Tarifa, Distribuidora e Geografia) — exceto participação de mercado (Ranking, \"Quem ganhou e quem perdeu espaço\", legenda da Tendência), que é sempre medida em MW, mesmo com o toggle em Instalações."],
     ["O que este painel revela",
      "Quais marcas de painel solar e de inversor vêm ganhando espaço no mercado brasileiro, e em quais regiões esse " +
      "movimento é mais forte. Base: registros da ANEEL para instalações residenciais e comerciais desde 2020."],
@@ -2298,6 +2418,7 @@ function montarPainelAjuda(){
   });
 }
 montarPainelAjuda();
+montarIndiceSecoes();
 
 // Resumo de uma tela so, pra copiar e mandar pra fora do dashboard (ex.: email) sem
 // precisar descrever os numeros na mao. Reflete o filtro corrente (campo, intervalo)
@@ -2474,10 +2595,21 @@ function montarFiltroCategoriaMetrica(){
     estado.categoriaMetrica = v;
     montarFiltroCategoriaMetrica();
     renderTendencia(); renderMarcaEspecifica(); renderRanking(); renderLeaderboard(); renderGeografia();
-    renderTecnologia(); renderFaixa(); renderClasse(); renderTarifa(); renderDistribuidora();
+    renderModelos(); renderTecnologia(); renderFaixa(); renderSegmento(); renderClasse(); renderTarifa(); renderDistribuidora();
   });
 }
 montarFiltroCategoriaMetrica();
+
+function montarFiltroTecDimensao(){
+  montarFiltro(document.getElementById("filtro-tec-dimensao"), [
+    { label:"Tecnologia", valor:"tecnologia" }, { label:"Bifacial", valor:"bifacial" }
+  ], estado.tecDimensao, function(v){
+    estado.tecDimensao = v;
+    montarFiltroTecDimensao();
+    renderTecnologia();
+  });
+}
+montarFiltroTecDimensao();
 
 function montarFiltroTecGranularidade(){
   montarFiltro(document.getElementById("filtro-tec-granularidade"), [

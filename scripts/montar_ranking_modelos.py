@@ -38,6 +38,7 @@ CONFIG = {
         "regras": "tecnologia_modelo_modulo.csv",
         "rotulo": "tecnologia",
         "ordem": ["Policristalino", "Mono PERC", "N-type TOPCon", "HJT", "BC", NAO_CLASSIFICADO],
+        "regras_bifacial": "bifacial_modelo_modulo.csv",
         "familia": lambda m: re.sub(r"(?<!\d)[3-7]\d{2}(?:WP|W)?(?!\d)", "", m),  # potência 300-799 W
         "ratings": {"PV-Tech ModuleTech": "pvtech_bankability", "BloombergNEF Tier 1": "bnef_tier1"},
     },
@@ -84,6 +85,34 @@ def categoria_por_linha(campo: str, marca: pd.Series, modelo_bruto: pd.Series) -
     return cat
 
 
+def modelo_normalizado(modelo_bruto: pd.Series) -> pd.Series:
+    texto = modelo_bruto.astype(str)
+    unicos = texto.unique()
+    return texto.map(dict(zip(unicos, map(mu.normalizar_modelo, unicos))))
+
+
+def sem_modelo(modelo: pd.Series) -> pd.Series:
+    return modelo.isin(SEM_MODELO) | (modelo.str.len() < 4)
+
+
+def familia_por_linha(campo: str, modelo_bruto: pd.Series) -> pd.Series:
+    """Família do modelo (sem a potência); "" quando o campo modelo não informa nada."""
+    modelo = modelo_normalizado(modelo_bruto)
+    unicos = modelo.unique()
+    fam = modelo.map(dict(zip(unicos, map(CONFIG[campo]["familia"], unicos))))
+    return fam.mask(sem_modelo(modelo), "")
+
+
+def bifacial_por_linha(marca: pd.Series, modelo_bruto: pd.Series, tecnologia: pd.Series) -> pd.Series:
+    """Bifacial / Monofacial / Não classificado (só módulo). Poli é sempre monofacial."""
+    modelo = modelo_normalizado(modelo_bruto)
+    regras = pd.read_csv(os.path.join(PASTA_SCRIPTS, CONFIG["modulo"]["regras_bifacial"]), dtype=str)
+    bif = classificar(pd.DataFrame({"marca": marca, "modelo": modelo}), regras, "bifacial")
+    bif[(tecnologia == "Policristalino") & (bif == NAO_CLASSIFICADO)] = "Monofacial"
+    bif[sem_modelo(modelo)] = NAO_CLASSIFICADO
+    return bif
+
+
 def motivo_sem_classificacao(nc: pd.DataFrame, marcas_com_regra: set) -> pd.Series:
     """Separa o que ainda dá para mapear do que não tem como classificar."""
     marca_compacta = nc["marca"].fillna("").map(mu.normalizar_texto).str.replace(" ", "")
@@ -121,12 +150,11 @@ def rodar(campo: str, df: pd.DataFrame) -> None:
     v["modelo"] = bruto.map(dict(zip(unicos, map(mu.normalizar_modelo, unicos))))
     v["sem_modelo"] = v["modelo"].isin(SEM_MODELO) | (v["modelo"].str.len() < 4)
     v["familia"] = v["modelo"].map(cfg["familia"])
-    if campo == "modulo":
-        # mesmo critério da agregação: marca vazia/ilegível é recuperada pelo código do modelo.
-        # fabricante_pelo_modelo também mostra a fábrica quando a marca registrada é revenda.
-        v["fabricante_pelo_modelo"] = mu.fabricante_pelo_modelo(bruto)
-        sem_marca = v["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO]) & v["fabricante_pelo_modelo"].notna()
-        v.loc[sem_marca, "marca"] = v.loc[sem_marca, "fabricante_pelo_modelo"]
+    # mesmo critério da agregação: marca vazia/ilegível é recuperada pelo código do modelo.
+    # fabricante_pelo_modelo também mostra a fábrica quando a marca registrada é revenda.
+    v["fabricante_pelo_modelo"] = mu.fabricante_pelo_modelo(bruto, mu.CAMINHO_PREFIXO_MODELO[campo])
+    sem_marca = v["marca"].isin([mu.OUTROS, mu.NAO_INFORMADO]) & v["fabricante_pelo_modelo"].notna()
+    v.loc[sem_marca, "marca"] = v.loc[sem_marca, "fabricante_pelo_modelo"]
     regras = pd.read_csv(os.path.join(PASTA_SCRIPTS, cfg["regras"]), dtype=str)
     v[rotulo] = classificar(v, regras, rotulo)
     v.loc[v["sem_modelo"], rotulo] = NAO_CLASSIFICADO

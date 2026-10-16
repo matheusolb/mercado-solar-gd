@@ -1,0 +1,38 @@
+{
+  "_leia_me": "Parâmetros do painel. Edite os valores e rode atualizar_tudo.py (ou só montar_payload_dashboard.py + gerar_dashboard_html.py para os blocos 'destaques', 'capilaridade' e 'modelos').",
+
+  "segmento": {
+    "_leia_me": "Público-alvo de cada instalação. 'usina' = modalidade remota/compartilhada acima de usina_kw_minimo (minigeração começa em 75 kW). O resto segue a classe de consumo da ANEEL; classe fora da lista vira 'padrao'.",
+    "usina_rotulo": "Usinas (remota/compartilhada)",
+    "usina_kw_minimo": 75,
+    "usina_modalidades": ["Auto consumo remoto", "Compartilhada"],
+    "classes": {
+      "Residencial": "Residencial",
+      "REBR": "Residencial",
+      "Rural": "Rural",
+      "Industrial": "Indústria"
+    },
+    "padrao": "Comércio e serviços",
+    "ordem": ["Residencial", "Comércio e serviços", "Rural", "Indústria", "Usinas (remota/compartilhada)"]
+  },
+
+  "destaques": {
+    "_leia_me": "Frase 'X se destaca' nos cards de categoria: força relativa mínima e participação mínima da marca na categoria.",
+    "forca_minima": 1.3,
+    "participacao_minima_pct": 3
+  },
+
+  "capilaridade": {
+    "_leia_me": "Presença relevante = categoria com pelo menos presenca_relevante_pct do volume da marca. Perfil compara a concentração nas 3 maiores com a do mercado: nacional até nacional_ate_pp acima, regional até regional_ate_pp, concentrada acima disso.",
+    "presenca_relevante_pct": 1,
+    "nacional_ate_pp": 10,
+    "regional_ate_pp": 25,
+    "top_marcas": 30
+  },
+
+  "modelos": {
+    "_leia_me": "top_por_periodo = quantas famílias de modelo o painel guarda por período (mais = soma de intervalos mais exata, payload maior). top_tabela = quantas aparecem na tabela.",
+    "top_por_periodo": 200,
+    "top_tabela": 20
+  }
+}

@@ -36,3 +36,7 @@ dados/processados/ranking_modelos_*.csv
 
 # material interno: nunca versionar
 Ajustes/
+dados/processados/agregado_modelo_*.parquet
+# planilhas internas (categorias, vendas, S&OP): nunca versionar
+*.xlsx
+*.xls

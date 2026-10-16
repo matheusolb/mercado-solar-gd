@@ -1,0 +1,32 @@
+marca,padrao,bifacial,confianca,fonte
+*,BIFACIAL|BIFA|BIF,Bifacial,confirmado,texto do modelo diz bifacial
+*,MONOFACIAL,Monofacial,confirmado,texto do modelo diz monofacial
+Canadian Solar,AG$|[MTBH]BAG|BPAG,Bifacial,confirmado,sufixo -AG (BiHiKu / TOPBiHiKu)
+Canadian Solar,\d{3}M[S]|\d{3}P,Monofacial,confirmado,HiKu MS e KuMax P
+Jinko Solar,BDV|TV$|TVP,Bifacial,confirmado,Tiger Pro/Neo BDV e TV (bifacial)
+Jinko Solar,JKM,Monofacial,inferido,sem sufixo bifacial
+Trina Solar,DEG\d|NEG\d,Bifacial,confirmado,Vertex DEG/NEG = vidro-vidro bifacial
+Trina Solar,DE\d|DD\d|PE\d|PD\d,Monofacial,confirmado,DE/DD/PE monofacial
+Risen Energy,[BH]?[MHN]?DG,Bifacial,confirmado,BMDG/BHDG/BNDG/HDG = dual glass bifacial
+Risen Energy,\d{3}[MP]$,Monofacial,inferido,sufixo M/P sem DG
+DAH Solar,DG|BF,Bifacial,confirmado,/DG (vidro duplo) e /BF (bifacial)
+DAH Solar,DH[MNPJ],Monofacial,inferido,sem DG/BF
+JA Solar,JAM\d{2}D,Bifacial,confirmado,JAM..D = DeepBlue bifacial (vidro duplo)
+JA Solar,JAM\d{2}S|JAP,Monofacial,confirmado,JAM..S = monofacial
+LONGi Solar,H[BTGV]D,Bifacial,confirmado,HBD/HTD/HGD/HVD = bifacial
+LONGi Solar,HPH|HIH|HTH|HVH,Monofacial,confirmado,HPH/HIH/HTH/HVH = monofacial
+Sunova,^SSBG,Bifacial,confirmado,Tangra M Pro SS-BG = bifacial
+Sunova,MDH|MTF,Monofacial,inferido,SS-xxx-72MDH sem BG
+Astronergy,DG,Bifacial,confirmado,CHSM..(DG) = vidro duplo bifacial
+Astronergy,CHSM,Monofacial,inferido,sem DG
+OSDA,MHD,Bifacial,confirmado,ODA..MHD / MHDRZ (BIF DG)
+OSDA,MH$,Monofacial,inferido,ODA..MH
+Leapton Solar,NB,Bifacial,confirmado,LP..NB bifacial
+Leapton Solar,NH|MH,Monofacial,inferido,NH listado como não bifacial
+Hanersun,72HT|66HT,Bifacial,confirmado,HN..-72HT bifacial
+Hanersun,72H\d|CP18,Monofacial,confirmado,HN18-72H585W monofacial
+Gokin Solar,BD,Bifacial,confirmado,FLAMINGO 72HTBD bifacial
+DMEGC,[TG]B\d\dH,Bifacial,confirmado,DM..-B72/B54 vidro-vidro bifacial
+BYD,M[LGI]K|P[HI6]K,Monofacial,confirmado,MLK/MIK/MGK-36 monofacial; PHK poli
+Honor Solar,GDF|GD,Bifacial,inferido,NT10/72GDF bifacial
+ZNShine Solar,LDD|DG,Bifacial,inferido,GPLDD/TPLDD = vidro duplo

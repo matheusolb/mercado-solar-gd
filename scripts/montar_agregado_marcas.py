@@ -51,7 +51,7 @@ def carregar_base_tecnica() -> pd.DataFrame:
 COLUNAS_GEOGRAFICAS_ANEEL = [
     "CodEmpreendimento", "SigTipoGeracao", "SigUF", "CodUFibge",
     "CodMunicipioIbge", "NomMunicipio", "NomRegiao",
-    "DscClasseConsumo", "DscSubGrupoTarifario", "SigAgente",
+    "DscClasseConsumo", "DscSubGrupoTarifario", "SigAgente", "DscModalidadeHabilitado",
 ]
 
 
@@ -112,15 +112,15 @@ def aplicar_marca(df: pd.DataFrame, campo: str) -> pd.Series:
         print(f"  aviso: {nao_mapeado} linhas com chave normalizada fora do mapa -> tratando como Outros "
               f"(rode montar_mapa_marcas.py de novo para cobrir)")
         marca = marca.fillna(mu.OUTROS)
-    if campo == "modulo":
-        # Marca vazia/ilegível, mas o código do modelo identifica o fabricante sem
-        # ambiguidade (JKM550M -> Jinko): recupera pelo modelo.
-        sem_marca = marca.isin([mu.OUTROS, mu.NAO_INFORMADO])
-        recuperada = mu.fabricante_pelo_modelo(df.loc[sem_marca, "NomModeloModulo"]).dropna()
-        marca.loc[recuperada.index] = recuperada
-        kw = df["MdaPotenciaInstalada"]
-        print(f"  marca recuperada pelo modelo: {len(recuperada):,} instalações "
-              f"({kw.loc[recuperada.index].sum() / kw.sum():.1%} do kW)")
+    # Marca vazia/ilegível, mas o código do modelo identifica o fabricante sem
+    # ambiguidade (JKM550M -> Jinko, SUN2000-6KTL -> Huawei): recupera pelo modelo.
+    sem_marca = marca.isin([mu.OUTROS, mu.NAO_INFORMADO])
+    coluna_modelo = "NomModeloModulo" if campo == "modulo" else "NomModeloInversor"
+    recuperada = mu.fabricante_pelo_modelo(df.loc[sem_marca, coluna_modelo], mu.CAMINHO_PREFIXO_MODELO[campo]).dropna()
+    marca.loc[recuperada.index] = recuperada
+    kw = df["MdaPotenciaInstalada"]
+    print(f"  marca recuperada pelo modelo: {len(recuperada):,} instalações "
+          f"({kw.loc[recuperada.index].sum() / kw.sum():.1%} do kW)")
     return marca
 
 
@@ -136,6 +136,29 @@ def agregar_por_marca(df: pd.DataFrame, coluna_marca: str) -> pd.DataFrame:
     )
     agrupado["kw_medio_instalacao"] = agrupado["soma_kw"] / agrupado["qtd_instalacoes"]
     return agrupado
+
+
+def salvar_agregado_modelo(unido: pd.DataFrame, campo: str, marca: pd.Series, tecnologia: pd.Series) -> None:
+    """Agregado por família de modelo (mês x marca x família x tecnologia[/bifacial]) --
+    alimenta "Modelos mais instalados" e o mix bifacial do painel. Família "" = sem modelo
+    informado (fica no arquivo para o mix somar 100%, mas fora do ranking de modelos)."""
+    bruto = unido[mrm.CONFIG[campo]["coluna_modelo"]].astype(str)
+    m = pd.DataFrame({"ano_mes": unido["ano_mes"], "marca": marca, "tecnologia": tecnologia,
+                      "familia": mrm.familia_por_linha(campo, bruto), "modelo_bruto": bruto,
+                      "kw": unido["MdaPotenciaInstalada"]})
+    chaves = ["ano_mes", "marca", "familia", "tecnologia"]
+    if campo == "modulo":
+        m["bifacial"] = mrm.bifacial_por_linha(marca, bruto, tecnologia)
+        chaves.append("bifacial")
+    agg = m.groupby(chaves).agg(soma_kw=("kw", "sum"), qtd_instalacoes=("kw", "size")).reset_index()
+    exemplo = (m[m["familia"] != ""].groupby(["marca", "familia", "modelo_bruto"]).size().reset_index(name="n")
+               .sort_values("n").drop_duplicates(["marca", "familia"], keep="last")
+               .rename(columns={"modelo_bruto": "exemplo"})[["marca", "familia", "exemplo"]])
+    agg = agg.merge(exemplo, on=["marca", "familia"], how="left")
+    assert abs(agg["soma_kw"].sum() - m["kw"].sum()) < 1, f"[{campo}] agregado por modelo não conserva kW"
+    caminho = os.path.join(PASTA_PROCESSADOS, f"agregado_modelo_{campo}.parquet")
+    agg.to_parquet(caminho, index=False)
+    print(f"  agregado por modelo salvo: {caminho} ({len(agg):,} linhas)")
 
 
 def checar_conservacao(agregado: pd.DataFrame, base: pd.DataFrame, campo: str):
@@ -176,6 +199,10 @@ def main():
               f"max={acima.max():,.1f} kW) -- teto configurado e {faixas.teto_kw:,.0f} kW. "
               f"Ajuste faixas_potencia.csv.")
 
+    unido["segmento"] = mu.segmento_publico(unido["classe_consumo"], unido["DscModalidadeHabilitado"], unido["MdaPotenciaInstalada"])
+    print("Segmento (% do kW): " + ", ".join(f"{k} {v:.1f}%" for k, v in (
+        unido.groupby("segmento")["MdaPotenciaInstalada"].sum() / unido["MdaPotenciaInstalada"].sum() * 100).items()))
+
     for campo in CAMPOS:
         print("=" * 80)
         print(f"Agregando: {campo}")
@@ -184,6 +211,8 @@ def main():
         unido_campo = unido.assign(_marca=marca, tecnologia=tecnologia)
         agregado = agregar_por_marca(unido_campo, "_marca")
         checar_conservacao(agregado, unido, campo)
+
+        salvar_agregado_modelo(unido, campo, marca, tecnologia)
 
         caminho_parquet = os.path.join(PASTA_PROCESSADOS, f"agregado_marca_{campo}.parquet")
         agregado.to_parquet(caminho_parquet, index=False)

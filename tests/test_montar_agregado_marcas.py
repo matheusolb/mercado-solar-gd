@@ -21,6 +21,7 @@ def _df_fabricado():
         "grupo_tarifario": ["B1", "B1", "B1"],
         "distribuidora": ["ENEL SP", "ENEL SP", "COPEL"],
         "tecnologia": ["Mono PERC", "N-type TOPCon", "Não classificado"],
+        "segmento": ["Residencial", "Residencial", "Comércio e serviços"],
         "_marca": ["Canadian Solar", "Jinko Solar", "Outros"],
         "MdaPotenciaInstalada": [5.4, 8.2, 3.0],
     })
@@ -53,3 +54,13 @@ def test_checar_conservacao_detecta_contagem_quebrada():
     agregado.loc[0, "qtd_instalacoes"] += 1
     with pytest.raises(AssertionError, match="contagem de linhas nao conservada"):
         mam.checar_conservacao(agregado, df, "teste")
+
+
+def test_segmento_publico_usina_e_classes():
+    import marca_utils as mu
+    seg = mu.segmento_publico(
+        pd.Series(["Residencial", "REBR", "Comercial", "Rural", "Residencial"]),
+        pd.Series(["Geracao na propria UC"] * 4 + ["Auto consumo remoto"]),
+        pd.Series([5.0, 5.0, 30.0, 10.0, 500.0]),
+    )
+    assert list(seg) == ["Residencial", "Residencial", "Comércio e serviços", "Rural", "Usinas (remota/compartilhada)"]

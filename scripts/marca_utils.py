@@ -45,6 +45,7 @@ COLUNAS_AGRUPAMENTO_AGREGADO = [
     "regiao", "SigUF", "CodUFibge", "CodMunicipioIbge", "NomMunicipio",
     "faixa_potencia", "classe_consumo", "grupo_tarifario", "distribuidora",
     "tecnologia",  # módulo: tecnologia de célula; inversor: tipo (string/micro/híbrido)
+    "segmento",    # público-alvo (residencial, comércio, rural, indústria, usinas) -- ver parametros.json
 ]
 COLUNAS_METRICAS_AGREGADO = ["marca", "soma_kw", "qtd_instalacoes", "kw_medio_instalacao"]
 COLUNAS_AGREGADO = COLUNAS_AGRUPAMENTO_AGREGADO + COLUNAS_METRICAS_AGREGADO
@@ -59,7 +60,30 @@ def validar_colunas(df: pd.DataFrame, esperadas: list[str], origem: str) -> None
             f"O schema da fonte mudou, ou uma etapa anterior do pipeline precisa rodar de novo."
         )
 
-CAMINHO_PREFIXO_MODELO_MODULO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prefixo_modelo_modulo.csv")
+PASTA_SCRIPTS_MU = os.path.dirname(os.path.abspath(__file__))
+CAMINHO_PREFIXO_MODELO_MODULO = os.path.join(PASTA_SCRIPTS_MU, "prefixo_modelo_modulo.csv")
+CAMINHO_PREFIXO_MODELO = {
+    "modulo": CAMINHO_PREFIXO_MODELO_MODULO,
+    "inversor": os.path.join(PASTA_SCRIPTS_MU, "prefixo_modelo_inversor.csv"),
+}
+CAMINHO_PARAMETROS = os.path.join(PASTA_SCRIPTS_MU, "parametros.json")
+
+
+def carregar_parametros() -> dict:
+    """Parâmetros ajustáveis do painel (scripts/parametros.json)."""
+    import json
+    with open(CAMINHO_PARAMETROS, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def segmento_publico(classe: pd.Series, modalidade: pd.Series, kw: pd.Series) -> pd.Series:
+    """Público-alvo da instalação. Usina = modalidade remota/compartilhada acima do
+    limite de potência; o resto segue a classe de consumo (regras em parametros.json)."""
+    p = carregar_parametros()["segmento"]
+    c = classe.astype(str).str.strip()
+    seg = c.map(p["classes"]).fillna(p["padrao"])
+    usina = modalidade.isin(p["usina_modalidades"]) & (kw > p["usina_kw_minimo"])
+    return seg.mask(usina, p["usina_rotulo"])
 
 
 def normalizar_modelo(texto) -> str:

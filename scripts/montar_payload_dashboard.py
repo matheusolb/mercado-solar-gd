@@ -22,6 +22,8 @@ import logica_mercado as lm
 import marca_utils as mu
 import montar_ranking_modelos as mrm
 
+PARAMETROS = mu.carregar_parametros()
+
 PASTA_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 PASTA_PROJETO = os.path.dirname(PASTA_SCRIPTS)
 PASTA_PROCESSADOS = os.path.join(PASTA_PROJETO, "dados", "processados")
@@ -66,6 +68,38 @@ def carregar_agregado(campo: str) -> pd.DataFrame:
     df = pd.read_parquet(caminho)
     mu.validar_colunas(df, mu.COLUNAS_AGREGADO, caminho)
     return df[df["ano_mes"] >= PISO_PADRAO].copy()
+
+
+def carregar_agregado_modelo(campo: str) -> pd.DataFrame | None:
+    caminho = os.path.join(PASTA_PROCESSADOS, f"agregado_modelo_{campo}.parquet")
+    if not os.path.exists(caminho):
+        return None
+    dm = pd.read_parquet(caminho)
+    dm = dm[dm["ano_mes"] >= PISO_PADRAO].copy()
+    dm["ano"] = dm["ano_mes"].str[:4]
+    dm["ano_trimestre"] = dm["ano"] + "-Q" + ((dm["ano_mes"].str[5:7].astype(int) - 1) // 3 + 1).astype(str)
+    return dm
+
+
+def top_modelos(dm: pd.DataFrame, meses: list[str], n: int) -> list[list]:
+    """Famílias de modelo mais instaladas no período: [marca, família, exemplo, tecnologia,
+    bifacial, mw, instalações]. Guarda n por período (parametros.json) -- somando vários
+    períodos, uma família fora do top-n de algum deles pode ficar levemente subestimada."""
+    sub = dm[dm["ano_mes"].isin(meses) & (dm["familia"] != "")]
+    if sub.empty:
+        return []
+    g = sub.groupby(["marca", "familia"]).agg(kw=("soma_kw", "sum"), inst=("qtd_instalacoes", "sum"))
+    g = g.sort_values("kw", ascending=False).head(n)
+    def dominante(coluna):
+        if coluna not in sub:
+            return {}
+        t = sub.groupby(["marca", "familia", coluna])["soma_kw"].sum().reset_index()
+        t = t.sort_values("soma_kw").drop_duplicates(["marca", "familia"], keep="last")
+        return dict(zip(zip(t["marca"], t["familia"]), t[coluna]))
+    tec, bif = dominante("tecnologia"), dominante("bifacial")
+    exemplo = dict(zip(zip(sub["marca"], sub["familia"]), sub["exemplo"]))
+    return [[m, f, exemplo.get((m, f)) or f, tec.get((m, f), ""), bif.get((m, f), ""), round(r["kw"] / 1000, 3), int(r["inst"])]
+            for (m, f), r in g.iterrows()]
 
 
 def escolher_marcas_grafico(df: pd.DataFrame, periodos_meses: dict[str, list[str]], n: int) -> list[str]:
@@ -327,7 +361,8 @@ def totais_uf_instalacoes(df: pd.DataFrame, meses: list[str], marcas_grafico: li
     return {uf: {m: int(v) for m, v in linha.items()} for uf, linha in agrupado.iterrows()}
 
 
-def mix_por_periodo(df: pd.DataFrame, ancora: pd.Period, categorias: list[str], coluna: str) -> dict:
+def mix_por_periodo(df: pd.DataFrame, ancora: pd.Period, categorias: list[str], coluna: str,
+                    coluna_cat: str = "tecnologia") -> dict:
     """Composição por tecnologia/tipo de cada ano (coluna="ano") ou trimestre
     (coluna="ano_trimestre"), até o último mês completo -- alimenta o gráfico de
     evolução. "parcial" é o rótulo do último período quando ele ainda não fechou."""
@@ -335,11 +370,21 @@ def mix_por_periodo(df: pd.DataFrame, ancora: pd.Period, categorias: list[str], 
     periodos = sorted(sub[coluna].astype(str).unique())
     fechou = ancora.month == 12 if coluna == "ano" else ancora.month % 3 == 0
     def pivot(valor, fator, tipo):
-        t = sub.pivot_table(index=sub[coluna].astype(str), columns="tecnologia", values=valor, aggfunc="sum", observed=True)
+        t = sub.pivot_table(index=sub[coluna].astype(str), columns=coluna_cat, values=valor, aggfunc="sum", observed=True)
         t = t.reindex(index=periodos, columns=categorias, fill_value=0).fillna(0)
         return {c: [tipo(v / fator) for v in t[c]] for c in categorias}
     return {"periodos": periodos, "parcial": None if fechou else periodos[-1], "ate": str(ancora),
             "mw": pivot("soma_kw", 1000, lambda v: round(v, 3)), "inst": pivot("qtd_instalacoes", 1, int)}
+
+
+def mix_bifacial(dm: pd.DataFrame | None, ancora: pd.Period) -> dict:
+    """Mix Bifacial/Monofacial por ano e trimestre (só módulo)."""
+    if dm is None or "bifacial" not in dm:
+        return {}
+    ordem = [c for c in ["Bifacial", "Monofacial", mrm.NAO_CLASSIFICADO] if c in set(dm["bifacial"])]
+    return {"bifacial_ordem": ordem,
+            "bifacial_anual": mix_por_periodo(dm, ancora, ordem, "ano", "bifacial"),
+            "bifacial_trimestral": mix_por_periodo(dm, ancora, ordem, "ano_trimestre", "bifacial")}
 
 
 def montar_payload_campo(campo: str) -> dict:
@@ -393,6 +438,10 @@ def montar_payload_campo(campo: str) -> dict:
     tarifa_mw, tarifa_inst, tarifa_perfil, tarifa_composicao = {}, {}, {}, {}
     dist_mw, dist_inst, dist_perfil, dist_composicao = {}, {}, {}, {}
     tec_mw, tec_inst, tec_perfil, tec_composicao = {}, {}, {}, {}
+    seg_mw, seg_inst, seg_perfil, seg_composicao = {}, {}, {}, {}
+    segmentos_ordem = [s for s in PARAMETROS["segmento"]["ordem"] if s in set(df["segmento"])]
+    dm = carregar_agregado_modelo(campo)
+    modelos_top = {}
     # capilaridade: composição completa por UF e por distribuidora (todas, sem o fold do top-10)
     uf_composicao, dist_composicao_total = {}, {}
     ufs_todas = sorted(df["SigUF"].dropna().astype(str).unique())
@@ -432,6 +481,13 @@ def montar_payload_campo(campo: str) -> dict:
         tec_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "tecnologia", tecnologias_ordem)
         tec_perfil[chave] = perfil_categoria(df, meses, "tecnologia", tecnologias_ordem)
         tec_composicao[chave] = composicao_categoria(df, meses, "tecnologia", tecnologias_ordem, municipios_marcas_indice)
+
+        seg_mw[chave] = totais_categoria_mw(df, meses, marcas_grafico, "segmento", segmentos_ordem)
+        seg_inst[chave] = totais_categoria_instalacoes(df, meses, marcas_grafico, "segmento", segmentos_ordem)
+        seg_perfil[chave] = perfil_categoria(df, meses, "segmento", segmentos_ordem)
+        seg_composicao[chave] = composicao_categoria(df, meses, "segmento", segmentos_ordem, municipios_marcas_indice)
+        if dm is not None:
+            modelos_top[chave] = top_modelos(dm, meses, PARAMETROS["modelos"]["top_por_periodo"])
         uf_composicao[chave] = composicao_categoria(df, meses, "SigUF", ufs_todas, municipios_marcas_indice)
         dist_composicao_total[chave] = composicao_categoria(df, meses, "distribuidora", distribuidoras_todas, municipios_marcas_indice)
 
@@ -466,6 +522,8 @@ def montar_payload_campo(campo: str) -> dict:
         "tecnologias_ordem": tecnologias_ordem,
         "tecnologia_anual": mix_por_periodo(df, ancora, tecnologias_ordem, "ano"),
         "tecnologia_trimestral": mix_por_periodo(df, ancora, tecnologias_ordem, "ano_trimestre"),
+        "segmentos_ordem": segmentos_ordem,
+        **mix_bifacial(dm, ancora),
         "uf_regiao": mapa_uf_regiao(df),
         "periodos": {
             "ordem": ordem,
@@ -499,6 +557,11 @@ def montar_payload_campo(campo: str) -> dict:
             "tecnologia_inst": tec_inst,
             "tecnologia_perfil": tec_perfil,
             "tecnologia_composicao": tec_composicao,
+            "segmento_mw": seg_mw,
+            "segmento_inst": seg_inst,
+            "segmento_perfil": seg_perfil,
+            "segmento_composicao": seg_composicao,
+            "modelos_top": modelos_top,
             "uf_composicao": uf_composicao,
             "distribuidora_composicao_total": dist_composicao_total,
         },
@@ -513,6 +576,7 @@ def main():
         "top_n_cor": TOP_N_GRAFICO_COR,
         "leaderboard_top_n": LEADERBOARD_TOP_N,
         "multiplos_top_n": MULTIPLOS_TOP_N,
+        "parametros": {k: v for k, v in PARAMETROS.items() if k in ("destaques", "capilaridade", "modelos")},
         "campos": {campo: montar_payload_campo(campo) for campo in CAMPOS},
     }
     caminho = os.path.join(PASTA_DASHBOARD, "dashboard_dados.json")
