@@ -42,3 +42,5 @@ dados/processados/agregado_modelo_*.parquet
 *.xls
 dados/processados/powerbi_dim_*.parquet
 scripts/montar_paginas_powerbi.py
+scripts/medidas_powerbi.py
+scripts/documentar_powerbi.py
