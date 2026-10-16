@@ -40,3 +40,4 @@ dados/processados/agregado_modelo_*.parquet
 # planilhas internas (categorias, vendas, S&OP): nunca versionar
 *.xlsx
 *.xls
+dados/processados/powerbi_dim_*.parquet
