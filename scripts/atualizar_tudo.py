@@ -5,6 +5,7 @@ Uso (rodar a partir da pasta scripts/):
     python atualizar_tudo.py              # pipeline principal
     python atualizar_tudo.py --sqlite     # tambem reconstroi mercado_solar.db (~800MB, mais lento)
     python atualizar_tudo.py --reclassificar-outros   # depois de editar seed_marca_*.csv
+    python atualizar_tudo.py --so-se-novo # tarefa diaria: so roda se a ANEEL publicou versao nova
 
 Depois de trocar o parquet bruto da ANEEL ou aplicar correcao_marca em
 revisao_outros_*.csv, o uso normal (sem flag) ja resolve. --reclassificar-outros
@@ -39,11 +40,12 @@ def rodar_etapa(numero: str, nome: str, funcao, *args) -> None:
     print(f"-- {nome}: concluido em {time.time() - inicio:.0f}s")
 
 
-def baixar() -> None:
+def baixar() -> bool:
     try:
-        baixar_aneel.main()
+        return baixar_aneel.main()
     except (OSError, RuntimeError) as e:  # sem internet ou download cortado: segue com os arquivos da pasta
         print(f"  AVISO: download da ANEEL falhou ({e}); usando os arquivos que ja estao em dados/raw")
+        return False
 
 
 def main():
@@ -52,12 +54,17 @@ def main():
                          help="tambem reconstroi dados/processados/mercado_solar.db")
     parser.add_argument("--reclassificar-outros", action="store_true",
                          help="reclassifica o backlog de Outros contra o seed_marca_*.csv atualizado")
+    parser.add_argument("--so-se-novo", action="store_true",
+                         help="para se a ANEEL nao publicou versao nova (tarefa agendada)")
     args = parser.parse_args()
 
     modo_mapa = ["--modo", "reclassificar_outros"] if args.reclassificar_outros else []
 
     total_inicio = time.time()
-    rodar_etapa("0/4", "Download da ANEEL (so se houver versao nova)", baixar)
+    print(f"\n{'=' * 80}\n0/4 Download da ANEEL (so se houver versao nova)\n{'=' * 80}")
+    if not baixar() and args.so_se_novo:
+        print("Nada novo na ANEEL; pipeline nao rodou.")
+        return
     rodar_etapa("1/4", "Mapeamento de marcas", montar_mapa_marcas.main, modo_mapa)
     rodar_etapa("2/4", "Agregacao", montar_agregado_marcas.main)
     rodar_etapa("3/4", "Payload do dashboard", montar_payload_dashboard.main)

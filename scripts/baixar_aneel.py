@@ -15,9 +15,11 @@ ARQUIVOS = ("empreendimento-gd-informacoes-tecnicas-fotovoltaica.parquet", "empr
 ESTADO = os.path.join(PASTA_RAW, "versao_aneel.json")
 
 
-def main() -> None:
+def main() -> bool:
+    """True se baixou alguma versão nova."""
     with urllib.request.urlopen(API, timeout=60) as r:
         recursos = {os.path.basename(x["url"]): x for x in json.load(r)["result"]["resources"]}
+    novo = False
     estado = json.load(open(ESTADO, encoding="utf-8")) if os.path.exists(ESTADO) else {}
     for nome in ARQUIVOS:
         rec = recursos[nome]
@@ -38,8 +40,10 @@ def main() -> None:
             if antigo.startswith(prefixo + " (") and antigo.endswith(".parquet"):
                 os.remove(os.path.join(PASTA_RAW, antigo))
         estado[nome] = versao
+        novo = True
         with open(ESTADO, "w", encoding="utf-8") as f:
             json.dump(estado, f, indent=1)
+    return novo
 
 
 if __name__ == "__main__":
