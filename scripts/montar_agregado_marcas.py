@@ -139,18 +139,19 @@ def agregar_por_marca(df: pd.DataFrame, coluna_marca: str) -> pd.DataFrame:
 
 
 def salvar_agregado_modelo(unido: pd.DataFrame, campo: str, marca: pd.Series, tecnologia: pd.Series) -> None:
-    """Agregado por família de modelo (mês x marca x família x tecnologia[/bifacial]) --
+    """Agregado por família de modelo (mês x marca x família x tecnologia[/bifacial] x região x público x faixa) --
     alimenta "Modelos mais instalados" e o mix bifacial do painel. Família "" = sem modelo
     informado (fica no arquivo para o mix somar 100%, mas fora do ranking de modelos)."""
     bruto = unido[mrm.CONFIG[campo]["coluna_modelo"]].astype(str)
     m = pd.DataFrame({"ano_mes": unido["ano_mes"], "marca": marca, "tecnologia": tecnologia,
                       "familia": mrm.familia_por_linha(campo, bruto), "modelo_bruto": bruto,
-                      "kw": unido["MdaPotenciaInstalada"]})
-    chaves = ["ano_mes", "marca", "familia", "tecnologia"]
+                      "kw": unido["MdaPotenciaInstalada"], "regiao": unido["regiao"], "segmento": unido["segmento"],
+                      "faixa_potencia": unido["faixa_potencia"]})
+    chaves = ["ano_mes", "marca", "familia", "tecnologia", "regiao", "segmento", "faixa_potencia"]  # as 3 últimas: filtros do Power BI (19/10)
     if campo == "modulo":
         m["bifacial"] = mrm.bifacial_por_linha(marca, bruto, tecnologia)
         chaves.append("bifacial")
-    agg = m.groupby(chaves).agg(soma_kw=("kw", "sum"), qtd_instalacoes=("kw", "size")).reset_index()
+    agg = m.groupby(chaves, dropna=False, observed=True).agg(soma_kw=("kw", "sum"), qtd_instalacoes=("kw", "size")).reset_index()
     exemplo = (m[m["familia"] != ""].groupby(["marca", "familia", "modelo_bruto"]).size().reset_index(name="n")
                .sort_values("n").drop_duplicates(["marca", "familia"], keep="last")
                .rename(columns={"modelo_bruto": "exemplo"})[["marca", "familia", "exemplo"]])
