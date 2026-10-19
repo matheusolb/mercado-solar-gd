@@ -1,46 +1,46 @@
-marca,padrao,tipo,confianca,fonte
-*,MICRO,Microinversor,confirmado,texto do modelo diz micro
-*,HIBRID|HYBRID,Híbrido,confirmado,texto do modelo diz híbrido
-Growatt,XH(?!V)|SPH|SPF|SPA\d,Híbrido,confirmado,linhas SPH/SPA e sufixo XH (MIN TL-XH)
-Growatt,NEO,Microinversor,confirmado,NEO = micro
-Growatt,\d,String,confirmado,MIN/MID/MAX/MAC/MIC/MTL on-grid
-Growatt,^(?:MIN|MID|MAX|MAC|MIC|MTL),String,confirmado,linhas on-grid cadastradas sem a potência (ex.: MIN TL-X)
-Sungrow,^SH\d,Híbrido,confirmado,SH = hybrid
-Sungrow,^SG|\d,String,confirmado,SG = string on-grid
-Deye,"SUNM\d|SUN\d{3,4}G\d",Microinversor,confirmado,SUN-M e SUN2000G3 = micro
-Deye,KSG|SG\d\dLP,Híbrido,confirmado,SUN-xK-SG04LP = hybrid
-Deye,\d,String,confirmado,SUN-xK-G = string on-grid
-Solis (Ginlong),RHI|RAI|48ES|EH\dP|S\dEH,Híbrido,confirmado,RHI/RAI/S6-EH = hybrid e inversor de bateria (48 V)
-Solis (Ginlong),\d,String,confirmado,S5/S6-GR/GC e Solis-xK = string on-grid
-Huawei,KTLL1|L1$|LC0|LCO|SUN2000(?:[3-9]|1\d|20)KTLM1|KMB0,String com opção de bateria,confirmado,SUN2000 residencial L1/LC0/MB0 e M1 até 20 kW: on-grid compatível com bateria LUNA2000
-Huawei,\d,String,confirmado,SUN2000-KTL on-grid
-WEG,SIW300H,String com opção de bateria,confirmado,SIW300H: interface de armazenamento plug & play (catálogo WEG)
-WEG,SIW,String,confirmado,catálogo WEG SIW inversores string
-SAJ,^H[12]\d|^AS\d,Híbrido,inferido,H1/H2/AS = hybrid
-SAJ,^M2,Microinversor,inferido,M2-xK-S4 = micro
-SAJ,\d,String,confirmado,R5/R6/C6/Suntrio/Sununo on-grid
-Sofar Solar,HYD|ME3000,Híbrido,confirmado,HYD/ME3000 = hybrid/storage
-Sofar Solar,\d,String,confirmado,KTLM/KTLX/TL on-grid
-Solplanet,ASW\d+K?H,Híbrido,inferido,ASW-H = hybrid
-Solplanet,ASW,String,confirmado,ASW-S/LT/UT on-grid
-Fronius,GEN24,Híbrido,confirmado,Primo/Symo GEN24 = hybrid
-Fronius,PRIMO|SYMO|ECO|GALVO|IG,String,confirmado,Primo/Symo/Eco on-grid
-Goodwe,[0-9KD](?:ES|EM|ET|EH|BH|BT),Híbrido,confirmado,séries ES/EM/ET/EH/BH/BT = hybrid
-Goodwe,\d,String,confirmado,DNS/MS/XS/MT/HT/DT/SDT on-grid
-PHB,[0-9KD](?:ES|EM|ET|EH|BH|BT),Híbrido,inferido,mesma nomenclatura da Goodwe
-PHB,\d,String,inferido,mesma nomenclatura da Goodwe (NS/MS/MT/DT)
-Hoymiles,\d,Microinversor,confirmado,MI/HM/HMS/HMT = micro
-APsystems,\d,Microinversor,confirmado,YC/QS1/DS3/QT2 = micro
-Renovigi,RENO\d+K|\d+K,String,inferido,RENO-xK on-grid
-Canadian Solar,CSI|KTL,String,confirmado,CSI-xK on-grid
-Intelbras,IONS\d+KMH,Híbrido,confirmado,IONS 6K M Híbrido
-Intelbras,EGT|IONS,String,confirmado,EGT e IONS-xK M5 on-grid
-Bel Energy,"BEL\d{3,4}G\d",Microinversor,inferido,BEL2000G3 = mesmo código do Deye SUN2000G3 micro
-Bel Energy,\d,String,inferido,BEL-xK-G = mesmo código do Deye string
-Bedin Solar,\d,String,inferido,BS-xK-G = mesmo código do Deye string
-Renac,^N\d|ESC,Híbrido,inferido,N1/N3 = hybrid
-Renac,NAC|R\d,String,confirmado,NAC/R1/R3 on-grid
-ABB/FIMER,REACT,Híbrido,confirmado,REACT = storage
-ABB/FIMER,PVS|TRIO|UNO|PRO,String,confirmado,PVS/TRIO/UNO on-grid
-SolarEdge,SE\d,String,confirmado,SE = string com otimizador
-Chint,\d,String,inferido,CPS on-grid
+marca,padrao,tipo,confianca,fonte,tipo_fonte,link_fonte,data_consulta
+*,MICRO,Microinversor,confirmado,texto do modelo diz micro,texto do cadastro,,
+*,HIBRID|HYBRID,Híbrido,confirmado,texto do modelo diz híbrido,texto do cadastro,,
+Growatt,XH(?!V)|SPH|SPF|SPA\d,Híbrido,confirmado,linhas SPH/SPA e sufixo XH (MIN TL-XH),ficha técnica ou anúncio (distribuidor),https://cdn.estg.eu/p/c/5/0/1/c501447aade91afee305cc0c0b60a5c6ddd30b03_Datasheet_Growatt_MIN_2500_6000TL_XH_1PH_2_MPPT_solar_hybrid_inverter_2021_ENG.pdf,2026-10-19
+Growatt,NEO,Microinversor,confirmado,NEO = micro,notícia do setor,https://solarquarter.com/2023/11/22/compact-in-size-powerful-in-performance-growatt-introduces-the-revolutionary-neo-2000m-x-microinverter/,2026-10-19
+Growatt,\d,String,confirmado,MIN/MID/MAX/MAC/MIC/MTL on-grid,ficha técnica ou anúncio (distribuidor),https://rexel.it/files/uploads/documenti/Schede%20tecniche%20Growatt/Growatt-MIN-TL-X-2500-6000.pdf,2026-10-19
+Growatt,^(?:MIN|MID|MAX|MAC|MIC|MTL),String,confirmado,linhas on-grid cadastradas sem a potência (ex.: MIN TL-X),ficha técnica ou anúncio (distribuidor),https://rexel.it/files/uploads/documenti/Schede%20tecniche%20Growatt/Growatt-MIN-TL-X-2500-6000.pdf,2026-10-19
+Sungrow,^SH\d,Híbrido,confirmado,SH = hybrid,ficha técnica (fabricante),https://uk.sungrowpower.com/upload/file/20241022/EN_DS_SH3.0RS_SH3.6RS_SH4.0RS_SH5.0RS_SH6.0RS_Datasheet.pdf,2026-10-19
+Sungrow,^SG|\d,String,confirmado,SG = string on-grid,ficha técnica ou anúncio (distribuidor),https://www.vpsolar.com/en/product/sungrow-sg-3-0-3-6-4-0-5-0-6-0-rs-2-mppt/,2026-10-19
+Deye,"SUNM\d|SUN\d{3,4}G\d",Microinversor,confirmado,SUN-M e SUN2000G3 = micro,página do fabricante,https://deye.com/?p=4318,2026-10-19
+Deye,KSG|SG\d\dLP,Híbrido,confirmado,SUN-xK-SG04LP = hybrid,ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/deye-sun-5k--sg04lp1-eu-7678,2026-10-19
+Deye,\d,String,confirmado,SUN-xK-G = string on-grid,ficha técnica (fabricante),https://www.deyeinverter.com/deyeinverter/2022/08/31/datasheet-sun-(3.6-6)k-g04-au.pdf,2026-10-19
+Solis (Ginlong),RHI|RAI|48ES|EH\dP|S\dEH,Híbrido,confirmado,RHI/RAI/S6-EH = hybrid e inversor de bateria (48 V),ficha técnica (fabricante),"https://solisinverters.com/uploads/file/Solis_datasheet_S6-EH1P(3-6)K-L-PRO_CHL_V1,8_202410.pdf",2026-10-19
+Solis (Ginlong),\d,String,confirmado,S5/S6-GR/GC e Solis-xK = string on-grid,ficha técnica (fabricante),"https://solisinverters.com/uploads/file/Solis_datasheet_S6-GR1P(2,5-6)K-S_PHL_V2,0_202410.pdf",2026-10-19
+Huawei,KTLL1|L1$|LC0|LCO|SUN2000(?:[3-9]|1\d|20)KTLM1|KMB0,String com opção de bateria,confirmado,SUN2000 residencial L1/LC0/MB0 e M1 até 20 kW: on-grid compatível com bateria LUNA2000,página do fabricante,https://solar.huawei.com/en/products/sun2000-3-4-5-6ktl-l1/specs/,2026-10-19
+Huawei,\d,String,confirmado,SUN2000-KTL on-grid,ficha técnica (fabricante),https://solar.huawei.com/~/media/Solar/attachment/pdf/de/datasheet/SUN2000-60KTL-M0.pdf,2026-10-19
+WEG,SIW300H,String com opção de bateria,confirmado,SIW300H: interface de armazenamento plug & play (catálogo WEG),catálogo do fabricante,https://static.weg.net/medias/downloadcenter/h09/h17/WEG-SIW-inversores-string-50105878-pt.pdf,2026-10-19
+WEG,SIW,String,confirmado,catálogo WEG SIW inversores string,catálogo do fabricante,https://static.weg.net/medias/downloadcenter/h09/h17/WEG-SIW-inversores-string-50105878-pt.pdf,2026-10-19
+SAJ,^H[12]\d|^AS\d,Híbrido,inferido,H1/H2/AS = hybrid,dedução pela nomenclatura,,
+SAJ,^M2,Microinversor,inferido,M2-xK-S4 = micro,dedução pela nomenclatura,,
+SAJ,\d,String,confirmado,R5/R6/C6/Suntrio/Sununo on-grid,ficha técnica (fabricante),https://saj-electric.com/hubfs/crm-properties-file-values/R5-(3-8K)-S2_datasheet_en_AU.pdf,2026-10-19
+Sofar Solar,HYD|ME3000,Híbrido,confirmado,HYD/ME3000 = hybrid/storage,ficha técnica ou anúncio (distribuidor),https://7sun.eu/produkt/sofar-hyd-5ktl-inverter-3-phase-hybrid/,2026-10-19
+Sofar Solar,\d,String,confirmado,KTLM/KTLX/TL on-grid,ficha técnica ou anúncio (distribuidor),https://www.wattuneed.com/en/inverters-converters/26330-single-phase-inverter-sofar-solar-5ktlm-g3-a-0768563819841.html,2026-10-19
+Solplanet,ASW\d+K?H,Híbrido,inferido,ASW-H = hybrid,dedução pela nomenclatura,,
+Solplanet,ASW,String,confirmado,ASW-S/LT/UT on-grid,ficha técnica (fabricante),https://solplanet.net/wp-content/uploads/2020/11/Datasheet-ASW-S-S-Series-Global-EN_0924_web.pdf,2026-10-19
+Fronius,GEN24,Híbrido,confirmado,Primo/Symo GEN24 = hybrid,página do fabricante,https://www.fronius.com/en/help-center/solar-energy/products/solar-inverters/gen24/primo-gen24/fronius-primo-gen24-6-0,2026-10-19
+Fronius,PRIMO|SYMO|ECO|GALVO|IG,String,confirmado,Primo/Symo/Eco on-grid,ficha técnica ou anúncio (distribuidor),https://solarshop.baywa-re.lv/en/inverters/fronius-inverters-4210060-9007947153784,2026-10-19
+Goodwe,[0-9KD](?:ES|EM|ET|EH|BH|BT),Híbrido,confirmado,séries ES/EM/ET/EH/BH/BT = hybrid,ficha técnica ou anúncio (distribuidor),https://sol-distribution.com.au/wp-content/uploads/2024/05/GW_ET_Datasheet-AU.pdf,2026-10-19
+Goodwe,\d,String,confirmado,DNS/MS/XS/MT/HT/DT/SDT on-grid,ficha técnica (fabricante),https://en.goodwe.com/Public/Uploads/uploadfile/files/20250630/GW_DNSG3_Datasheet-EN-IN.pdf,2026-10-19
+PHB,[0-9KD](?:ES|EM|ET|EH|BH|BT),Híbrido,inferido,mesma nomenclatura da Goodwe,dedução pela nomenclatura,,
+PHB,\d,String,inferido,mesma nomenclatura da Goodwe (NS/MS/MT/DT),dedução pela nomenclatura,,
+Hoymiles,\d,Microinversor,confirmado,MI/HM/HMS/HMT = micro,ficha técnica (fabricante),https://hoymiles-oss.yongsy.com/uploads/2025/04/Datasheet_HMS-1600&1800&2000-4T_EU_EN_V202402.pdf,2026-10-19
+APsystems,\d,Microinversor,confirmado,YC/QS1/DS3/QT2 = micro,página do fabricante,https://global.apsystems.com/portfolio-item/ds3d/,2026-10-19
+Renovigi,RENO\d+K|\d+K,String,inferido,RENO-xK on-grid,dedução pela nomenclatura,,
+Canadian Solar,CSI|KTL,String,confirmado,CSI-xK on-grid,ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/inverter_datasheet_Datasheet-CSI-5K-S22003-E.pdf,2026-10-19
+Intelbras,IONS\d+KMH,Híbrido,confirmado,IONS 6K M Híbrido,página do fabricante,https://www.intelbras.com/pt-br/inversor-hibrido-monofasico-6-kw-ions-6k-m-hibrido,2026-10-19
+Intelbras,EGT|IONS,String,confirmado,EGT e IONS-xK M5 on-grid,ficha técnica (fabricante),https://backend.intelbras.com/sites/default/files/2024-10/Datasheet%20IONS-5K%20M5%20e%20IONS-6K%20M5%2004-10-24-2.pdf,2026-10-19
+Bel Energy,"BEL\d{3,4}G\d",Microinversor,inferido,BEL2000G3 = mesmo código do Deye SUN2000G3 micro,dedução pela nomenclatura,,
+Bel Energy,\d,String,inferido,BEL-xK-G = mesmo código do Deye string,dedução pela nomenclatura,,
+Bedin Solar,\d,String,inferido,BS-xK-G = mesmo código do Deye string,dedução pela nomenclatura,,
+Renac,^N\d|ESC,Híbrido,inferido,N1/N3 = hybrid,dedução pela nomenclatura,,
+Renac,NAC|R\d,String,confirmado,NAC/R1/R3 on-grid,ficha técnica ou anúncio (distribuidor),https://solarmagazine.nl/u/webshop/datasheetrenacr3lvseries.pdf,2026-10-19
+ABB/FIMER,REACT,Híbrido,confirmado,REACT = storage,ficha técnica (fabricante),https://www.fimer.com/sites/default/files/2020-01/REACT2-3.6-5.0-TL_BCD.00688_EN_RevD_.pdf,2026-10-19
+ABB/FIMER,PVS|TRIO|UNO|PRO,String,confirmado,PVS/TRIO/UNO on-grid,ficha técnica (fabricante),https://www.fimer.com/sites/default/files/FIMER_PVS-50-60-TL__EN_Rev_E.pdf,2026-10-19
+SolarEdge,SE\d,String,confirmado,SE = string com otimizador,ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/inv_datasheet_se-single-phase-HD-wave-inverter-datasheet-aus.pdf,2026-10-19
+Chint,\d,String,inferido,CPS on-grid,dedução pela nomenclatura,,

@@ -1,99 +1,99 @@
-marca,padrao,tecnologia,confianca,fonte
-DAH Solar,DHJ,HJT,confirmado,DHJ-66Y18/DG 700-725 W = HJT (DHN é a versão TOPCon)
-ZNShine Solar,ZXI,HJT,confirmado,ZXI8-GPLDD132 = HJT 700 W (Canal Solar)
-ZNShine Solar,ZXM8,N-type TOPCon,confirmado,ZXM8-GPLDD/TPLDD132 = TOPCon
-HUASUN,\d,HJT,confirmado,Huasun fabrica só HJT (HS-210-B132DS700)
-Sunova,G12H$,HJT,inferido,SS-BG700-66MDH-G12(H); a versão (T) é TOPCon
-Risen Energy,HDG,HJT,inferido,RSM132-8-690HDG: mesmo sufixo HDG da linha Hyper-ion (BHDG)
-Canadian Solar,TBAG,N-type TOPCon,confirmado,TOPBiHiKu (CS7N-xxxTB-AG)
-Canadian Solar,\d{3}M[SB],Mono PERC,confirmado,HiKu/BiHiKu MS e MB-AG
-Canadian Solar,\d{3}P,Policristalino,confirmado,KuMax/KuPower sufixo P
-Jinko Solar,JKM\d{3}N,N-type TOPCon,confirmado,Tiger Neo (letra N após a potência)
-Jinko Solar,JKM\d{3}M,Mono PERC,confirmado,Tiger/Cheetah (letra M após a potência)
-Jinko Solar,JKM\d{3}P,Policristalino,confirmado,letra P após a potência
-Trina Solar,NEG\d|NE\d,N-type TOPCon,confirmado,Vertex N (NEG)
-Trina Solar,P[ED]\d,Policristalino,confirmado,CEC: TSM-xxxPE15H = 144 half-cut poly
-Trina Solar,DEG\d|D[ED]\d,Mono PERC,confirmado,Vertex/Tallmax mono (DE/DEG/DD)
-Risen Energy,BHDG,HJT,inferido,Hyper-ion (H = heterojunção)
-Risen Energy,BNDG,N-type TOPCon,inferido,N = n-type
-Risen Energy,BMDG|\d{3}M,Mono PERC,confirmado,datasheet RSM110-8 Mono PERC
-Risen Energy,\d{3}P,Policristalino,inferido,sufixo P
-DAH Solar,DHN,N-type TOPCon,inferido,prefixo DHN = n-type
-DAH Solar,DHM,Mono PERC,inferido,prefixo DHM = mono
-DAH Solar,DHP,Policristalino,inferido,prefixo DHP = poly
-JA Solar,D4\d|LB$,N-type TOPCon,confirmado,DeepBlue 4.0 (D40/D42/D45 sufixo LB)
-JA Solar,JAP,Policristalino,confirmado,prefixo JAP
-JA Solar,JAM,Mono PERC,confirmado,DeepBlue 3.0 (MR/MB/GB)
-Sunova,MDH\w*T$,N-type TOPCon,confirmado,Tangra M Pro 72MDH(T)
-Sunova,SS5[0-6]\d72MDH$,Mono PERC,confirmado,datasheet SS-540~555-72MDH Half-Cell Mono PERC
-LONGi Solar,LR7|HT[HDB],BC,confirmado,Hi-MO 6/9 (HPBC)
-LONGi Solar,LR[456],Mono PERC,confirmado,Hi-MO 4/5 (HPH/HIH/HBD)
-Tsun,NT$|GANT,N-type TOPCon,inferido,sufixo NT
-Astronergy,CHSM\d+R?N,N-type TOPCon,confirmado,ASTRO N (N no código)
-Astronergy,CHSM\d+M,Mono PERC,inferido,M no código
-Astronergy,CHSM\d+P|CHSM6612P,Policristalino,inferido,P no código
-BYD,P[HI6]K,Policristalino,confirmado,CEC: BYD335P6K-36 polycrystalline
-BYD,M[LGI]K,Mono PERC,inferido,datasheet MLK-36 monofacial mono
-Leapton Solar,N[HB],N-type TOPCon,confirmado,LP182*182-M-72-NB/NH TOPCon
-Leapton Solar,MH,Mono PERC,inferido,MH = mono half-cell
-Honor Solar,M16|NT\d,N-type TOPCon,confirmado,ENF: HY-M16-144H TOPCon
-Honor Solar,M10,Mono PERC,inferido,wafer M10 (geração PERC)
-Hanersun,HN\d+R?N,N-type TOPCon,confirmado,HN18N-72HT N-type TOPCon
-Hanersun,HN18|CP18,Mono PERC,confirmado,HN18-72H = P-type monofacial
-OSDA,\d{3}36VMH$,Mono PERC,inferido,ODA550-36V-MH mono half-cut 10BB 21.3%
-WEG,HMM\d,Mono PERC,confirmado,WEG: WPV 550 HMM3 mono half-cell PERC
-Intelbras,^EMS,Mono PERC,inferido,EMSH-550M HC = Half Cell e PERC (Intelbras)
-DMEGC,RT,N-type TOPCon,confirmado,DM450M10RT = n-type TOPCon
-DMEGC,M10T|G12T,HJT,inferido,DM600M10T-B72HSW listado como n-type HJT
-Ronma Solar,TB$,N-type TOPCon,inferido,célula RM-182M10 é TOPCon
-Tsun,TS5[4-6]\dS8[AB],Mono PERC,inferido,série 540-560W mono (faixa de potência da geração PERC)
-Pulling Energy,SNM|WNM|\dNM,N-type TOPCon,inferido,NM = n-type mono
-Pulling Energy,SPM,Mono PERC,inferido,PM = p-type mono
-ReneSola,NG,N-type TOPCon,inferido,NG = n-type
-Talesun,TP7F72M,Mono PERC,inferido,Hipro mono half-cell
-Tsun,HN\d,N-type TOPCon,inferido,TSM472H-N = n-type
-Sunova,SS5[0-6]\d\d{2}MTF,Mono PERC,inferido (potência),505-550 W em 132/144 células = geração PERC
-Era Solar,ERAPRO72HC,N-type TOPCon,confirmado,ERA Pro-72HC = N-type TOPCon
-Era Solar,ESPHSC|ESPSC,Mono PERC,inferido (potência),540-555 W em 144 meias-células = PERC
-Bel Energy,MO1445[3-6]\d,Mono PERC,inferido (potência),revenda (MFV + código do fornecedor); 530-560 W em 144 meias-células
-Bel Energy,MO1445[7-9]\d|MO1446\d\d|144CEL5[7-9]\d,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células
-Bel Energy,MO1204[4-6]\d,Mono PERC,inferido (potência),440-460 W em 120 meias-células
-ZNShine Solar,N$|TPLD,N-type TOPCon,inferido,sufixo /N = n-type
-ZNShine Solar,ZXP,Policristalino,inferido,ZXP = poly
-ZNShine Solar,ZXM,Mono PERC,inferido,ZXM = mono
-Helius Energy,\d{3}T\d,N-type TOPCon,inferido,HMF144T10 (T = TOPCon)
-Helius Energy,\d{3}H\d,HJT,inferido,HMB132H12 (H = heterojunção)
-Helius Energy,\d{3}M\d,Mono PERC,inferido,HMF144M10 (M = mono PERC)
-Bedin Solar,BS5[7-9]\dM144,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células
-Bedin Solar,BS5[3-6]\dM144|BS5[3-6]\d36VMH,Mono PERC,inferido (potência),530-560 W em 144 meias-células
-GCL System,NT\d,N-type TOPCon,inferido,NT10 = n-type TOPCon
-GCL System,P6,Policristalino,inferido,P6 = poly
-GCL System,M10|M6,Mono PERC,inferido,M6/M10 mono
-Elgin,ELG5[7-9]\d|M16N,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células
-Elgin,ELG5[3-6]\d,Mono PERC,inferido (potência),530-560 W em 144 meias-células
-Amerisolar,AS7M144\w*5[7-9]\d,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células
-Amerisolar,AS6P,Policristalino,inferido,6P = poly
-Amerisolar,AS\dM,Mono PERC,inferido,6M/7M PERC (AS-6M PERC no próprio texto)
-Resun,RS8I5[7-9]\dM,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células
-Resun,RS8I,Mono PERC,inferido (potência),545-560 W em 144 meias-células
-Resun,\d{3}P,Policristalino,inferido,sufixo P
-Phono Solar,PS\d{3}M,Mono PERC,inferido,PSxxxM 400-550 W
-Luxen Solar,\d{3}N,N-type TOPCon,inferido,sufixo N = n-type
-Luxen Solar,\d{3}M,Mono PERC,inferido,sufixo M = mono
-Hanwha Q Cells,QPOWER,Policristalino,confirmado,Q.POWER = poly
-Hanwha Q Cells,QPEAK,Mono PERC,confirmado,Q.PEAK (Q.ANTUM PERC)
-Gokin Solar,HT,N-type TOPCon,confirmado,FLAMINGO 72HTBD N-type TOPCon
-AE Solar,HM\d|MD\d*,Mono PERC,inferido,HM6L/MD mono half-cell
-OSDA,MHD,N-type TOPCon,confirmado,ODA580-36V-MHD e ODA620-33VMHDRz = n-type TOPCon bifacial
-Era Solar,ERARC66H,N-type TOPCon,inferido (potência),RC-66HC/HD 610-650 W
-Pulling Energy,SNG|DNG,N-type TOPCon,inferido,N = n-type (G12R)
-WEG,MBN,N-type TOPCon,inferido (potência),H66MBN 580-620 W em 132 células
-TCL Solar,ND\d,N-type TOPCon,inferido,ND = n-type
-JINERGY,JNBN,N-type TOPCon,inferido,N = n-type; 590 W em 144 meias-células
-Seraphim,BTC,N-type TOPCon,inferido,BTC = bifacial TOPCon
-Canadian Solar,CS7N7\d\d,N-type TOPCon,inferido (potência),700 W passa do teto do PERC no CS7N (665 W)
-Sunova,SS5[7-9]\d72MDH$|SS6\d{4}MDH,N-type TOPCon,confirmado,Tangra M Pro 72MDH 570-590 W = n-type
-*,TOPCON,N-type TOPCon,confirmado,texto do modelo diz TOPCon
-*,HJT,HJT,confirmado,texto do modelo diz HJT
-*,PERC,Mono PERC,confirmado,texto do modelo diz PERC
-*,POLI|POLY,Policristalino,confirmado,texto do modelo diz poli
+marca,padrao,tecnologia,confianca,fonte,tipo_fonte,link_fonte,data_consulta
+DAH Solar,DHJ,HJT,confirmado,DHJ-66Y18/DG 700-725 W = HJT (DHN é a versão TOPCon),ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/dah-dhj-66y18-dg-710-700-725-1500v-silver-frame-52661,2026-10-19
+ZNShine Solar,ZXI,HJT,confirmado,ZXI8-GPLDD132 = HJT 700 W (Canal Solar),notícia do setor,https://canalsolar.com.br/znshine-lanca-modulos-hjt-potencia/,2026-10-19
+ZNShine Solar,ZXM8,N-type TOPCon,confirmado,ZXM8-GPLDD/TPLDD132 = TOPCon,ficha técnica ou anúncio (distribuidor),https://xlstore.exelsolar.com/Multimedia/FichaTecnica/ZXM8-GPLDD132-700-N_FichaTecnica.pdf,2026-10-19
+HUASUN,\d,HJT,confirmado,Huasun fabrica só HJT (HS-210-B132DS700),base pública (CEC/ENF/EPD),https://ps.prod.environdec.com/library/epd14673,2026-10-19
+Sunova,G12H$,HJT,inferido,SS-BG700-66MDH-G12(H); a versão (T) é TOPCon,dedução pela nomenclatura,,
+Risen Energy,HDG,HJT,inferido,RSM132-8-690HDG: mesmo sufixo HDG da linha Hyper-ion (BHDG),dedução pela nomenclatura,,
+Canadian Solar,TBAG,N-type TOPCon,confirmado,TOPBiHiKu (CS7N-xxxTB-AG),ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/panel_datasheet_CS-Datasheet-TOPBiHiKu7_CS7N-TB-AG_v1.9_EN.pdf,2026-10-19
+Canadian Solar,\d{3}M[SB],Mono PERC,confirmado,HiKu/BiHiKu MS e MB-AG,ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/panel_datasheet_Canadian_Solar-Datasheet-HiKu_CS3W-MS_v5.59_AU.pdf,2026-10-19
+Canadian Solar,\d{3}P,Policristalino,confirmado,KuMax/KuPower sufixo P,ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/panel_datasheet_Canadian_Solar-Datasheet-KuMax_CS3U-P_High-Efficiency_v5.61_AU.pdf,2026-10-19
+Jinko Solar,JKM\d{3}N,N-type TOPCon,confirmado,Tiger Neo (letra N após a potência),ficha técnica ou anúncio (distribuidor),https://sun.store/fr/product/jinko-jkm585n-72hl4-v-575-595-1500v-silver-frame-33537,2026-10-19
+Jinko Solar,JKM\d{3}M,Mono PERC,confirmado,Tiger/Cheetah (letra M após a potência),ficha técnica (fabricante),https://www.jinkosolar.com/uploads/JKM535-555M-72HL4-(V)-F3.1-CN.pdf,2026-10-19
+Jinko Solar,JKM\d{3}P,Policristalino,inferido,letra P após a potência (ficha não localizada em 19/10/2026),dedução pela nomenclatura,,
+Trina Solar,NEG\d|NE\d,N-type TOPCon,confirmado,Vertex N (NEG),ficha técnica ou anúncio (distribuidor),https://www.solartraders.com/de/producers/trina-solar/trina-solar-vertex-n-serie-tsm-neg21c-20,2026-10-19
+Trina Solar,P[ED]\d,Policristalino,confirmado,CEC: TSM-xxxPE15H = 144 half-cut poly,base pública (CEC/ENF/EPD),https://solarequipment.energy.ca.gov/Home/PVModuleList?page=736,2026-10-19
+Trina Solar,DEG\d|D[ED]\d,Mono PERC,confirmado,Vertex/Tallmax mono (DE/DEG/DD),catálogo do fabricante,https://pdf.archiexpo.com/pdf/trina-solar-energy/vertex-tsm-de18m-ii/62627-396392.html,2026-10-19
+Risen Energy,BHDG,HJT,inferido,Hyper-ion (H = heterojunção),dedução pela nomenclatura,,
+Risen Energy,BNDG,N-type TOPCon,inferido,N = n-type,dedução pela nomenclatura,,
+Risen Energy,BMDG|\d{3}M,Mono PERC,confirmado,datasheet RSM110-8 Mono PERC,ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/panel_datasheet_RSM110-8-535-560M-IEC1500V-30mm-2023H2-1-EN.pdf,2026-10-19
+Risen Energy,\d{3}P,Policristalino,inferido,sufixo P,dedução pela nomenclatura,,
+DAH Solar,DHN,N-type TOPCon,inferido,prefixo DHN = n-type,dedução pela nomenclatura,,
+DAH Solar,DHM,Mono PERC,inferido,prefixo DHM = mono,dedução pela nomenclatura,,
+DAH Solar,DHP,Policristalino,inferido,prefixo DHP = poly,dedução pela nomenclatura,,
+JA Solar,D4\d|LB$,N-type TOPCon,confirmado,DeepBlue 4.0 (D40/D42/D45 sufixo LB),ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/ja-solar-jam66d45-615-lb-595-620-1500v-black-frame-mc4-evo2a-40248,2026-10-19
+JA Solar,JAP,Policristalino,confirmado,prefixo JAP,ficha técnica ou anúncio (distribuidor),https://www.solartraders.com/uploads/production/data_sheet/file/4643/DS_JAP72S10_SC_330-350.pdf?locale=it,2026-10-19
+JA Solar,JAM,Mono PERC,confirmado,DeepBlue 3.0 (MR/MB/GB),ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/ja-solar-jam72s30-540w-mr-1000v-black-frame-72,2026-10-19
+Sunova,MDH\w*T$,N-type TOPCon,confirmado,Tangra M Pro 72MDH(T),ficha técnica ou anúncio (distribuidor),https://configurator.sun.store/en/product/sunova-tangra-m-pro-570-590w-ss-bg570-72mdh(t)-silver-frame-29754,2026-10-19
+Sunova,SS5[0-6]\d72MDH$,Mono PERC,confirmado,datasheet SS-540~555-72MDH Half-Cell Mono PERC,ficha técnica ou anúncio (distribuidor),https://canalsolar.com.br/download/2930/sunova/499359/ss-540_555-72mdh-30mm-frame.pdf,2026-10-19
+LONGi Solar,LR7|HT[HDB],BC,confirmado,Hi-MO 6/9 (HPBC),ficha técnica ou anúncio (distribuidor),https://cdn.shopify.com/s/files/1/0882/5641/4023/files/Datasheet_Longi_LR5-72HTH_590_600M.pdf,2026-10-19
+LONGi Solar,LR[456],Mono PERC,confirmado,Hi-MO 4/5 (HPH/HIH/HBD),ficha técnica ou anúncio (distribuidor),https://configurator.sun.store/en/product/longi-lr5-72hph-555m-1500v-silver-frame-540-560-28979,2026-10-19
+Tsun,NT$|GANT,N-type TOPCon,inferido,sufixo NT,dedução pela nomenclatura,,
+Astronergy,CHSM\d+R?N,N-type TOPCon,confirmado,ASTRO N (N no código),ficha técnica ou anúncio (distribuidor),https://www.solartraders.com/en/products/modules/astronergy-chsm72n-dg-f-bh-585w-bif-dg,2026-10-19
+Astronergy,CHSM\d+M,Mono PERC,inferido,M no código,dedução pela nomenclatura,,
+Astronergy,CHSM\d+P|CHSM6612P,Policristalino,inferido,P no código,dedução pela nomenclatura,,
+BYD,P[HI6]K,Policristalino,confirmado,CEC: BYD335P6K-36 polycrystalline,base pública (CEC/ENF/EPD),https://solarequipment.energy.ca.gov/Home/PVModuleList?page=59,2026-10-19
+BYD,M[LGI]K,Mono PERC,inferido,datasheet MLK-36 monofacial mono,dedução pela nomenclatura,,
+Leapton Solar,N[HB],N-type TOPCon,confirmado,LP182*182-M-72-NB/NH TOPCon,ficha técnica ou anúncio (distribuidor),https://solartraders.com/uploads/production/data_sheet/file/34734/LP182_182-M-72-NB%20565-585W%20Bifacial%20Silver%20Frame.pdf?locale=pl,2026-10-19
+Leapton Solar,MH,Mono PERC,inferido,MH = mono half-cell,dedução pela nomenclatura,,
+Honor Solar,M16|NT\d,N-type TOPCon,confirmado,ENF: HY-M16-144H TOPCon,base pública (CEC/ENF/EPD),https://www.enfsolar.com/honor-solar,2026-10-19
+Honor Solar,M10,Mono PERC,inferido,wafer M10 (geração PERC),dedução pela nomenclatura,,
+Hanersun,HN\d+R?N,N-type TOPCon,confirmado,HN18N-72HT N-type TOPCon,ficha técnica (fabricante),https://www.targikielce.pl/storage/file/core_files/2024/1/31/98819da44fc99650fedc8d231875b4a8/HN18N-72HT.pdf,2026-10-19
+Hanersun,HN18|CP18,Mono PERC,confirmado,HN18-72H = P-type monofacial,ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/hanersun-hn18-72h585w-full-black-1500v-13509,2026-10-19
+OSDA,\d{3}36VMH$,Mono PERC,inferido,ODA550-36V-MH mono half-cut 10BB 21.3%,dedução pela nomenclatura,,
+WEG,HMM\d,Mono PERC,confirmado,WEG: WPV 550 HMM3 mono half-cell PERC,catálogo do fabricante,https://static.weg.net/medias/downloadcenter/h7e/haf/WEG-wpv-550-555-hmm3-install-guides-pt.pdf,2026-10-19
+Intelbras,^EMS,Mono PERC,inferido,EMSH-550M HC = Half Cell e PERC (Intelbras),dedução pela nomenclatura,,
+DMEGC,RT,N-type TOPCon,inferido,DM450M10RT = n-type TOPCon (ficha não localizada em 19/10/2026),dedução pela nomenclatura,,
+DMEGC,M10T|G12T,HJT,inferido,DM600M10T-B72HSW listado como n-type HJT,dedução pela nomenclatura,,
+Ronma Solar,TB$,N-type TOPCon,inferido,célula RM-182M10 é TOPCon,dedução pela nomenclatura,,
+Tsun,TS5[4-6]\dS8[AB],Mono PERC,inferido,série 540-560W mono (faixa de potência da geração PERC),dedução pela nomenclatura,,
+Pulling Energy,SNM|WNM|\dNM,N-type TOPCon,inferido,NM = n-type mono,dedução pela nomenclatura,,
+Pulling Energy,SPM,Mono PERC,inferido,PM = p-type mono,dedução pela nomenclatura,,
+ReneSola,NG,N-type TOPCon,inferido,NG = n-type,dedução pela nomenclatura,,
+Talesun,TP7F72M,Mono PERC,inferido,Hipro mono half-cell,dedução pela nomenclatura,,
+Tsun,HN\d,N-type TOPCon,inferido,TSM472H-N = n-type,dedução pela nomenclatura,,
+Sunova,SS5[0-6]\d\d{2}MTF,Mono PERC,inferido (potência),505-550 W em 132/144 células = geração PERC,dedução pela potência,,
+Era Solar,ERAPRO72HC,N-type TOPCon,confirmado,ERA Pro-72HC = N-type TOPCon,ficha técnica ou anúncio (distribuidor),https://www.portlandiaelectric.supply/collections/on-sale/products/era-solar-era-pro-72hc585m,2026-10-19
+Era Solar,ESPHSC|ESPSC,Mono PERC,inferido (potência),540-555 W em 144 meias-células = PERC,dedução pela potência,,
+Bel Energy,MO1445[3-6]\d,Mono PERC,inferido (potência),revenda (MFV + código do fornecedor); 530-560 W em 144 meias-células,dedução pela potência,,
+Bel Energy,MO1445[7-9]\d|MO1446\d\d|144CEL5[7-9]\d,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células,dedução pela potência,,
+Bel Energy,MO1204[4-6]\d,Mono PERC,inferido (potência),440-460 W em 120 meias-células,dedução pela potência,,
+ZNShine Solar,N$|TPLD,N-type TOPCon,inferido,sufixo /N = n-type,dedução pela nomenclatura,,
+ZNShine Solar,ZXP,Policristalino,inferido,ZXP = poly,dedução pela nomenclatura,,
+ZNShine Solar,ZXM,Mono PERC,inferido,ZXM = mono,dedução pela nomenclatura,,
+Helius Energy,\d{3}T\d,N-type TOPCon,inferido,HMF144T10 (T = TOPCon),dedução pela nomenclatura,,
+Helius Energy,\d{3}H\d,HJT,inferido,HMB132H12 (H = heterojunção),dedução pela nomenclatura,,
+Helius Energy,\d{3}M\d,Mono PERC,inferido,HMF144M10 (M = mono PERC),dedução pela nomenclatura,,
+Bedin Solar,BS5[7-9]\dM144,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células,dedução pela potência,,
+Bedin Solar,BS5[3-6]\dM144|BS5[3-6]\d36VMH,Mono PERC,inferido (potência),530-560 W em 144 meias-células,dedução pela potência,,
+GCL System,NT\d,N-type TOPCon,inferido,NT10 = n-type TOPCon,dedução pela nomenclatura,,
+GCL System,P6,Policristalino,inferido,P6 = poly,dedução pela nomenclatura,,
+GCL System,M10|M6,Mono PERC,inferido,M6/M10 mono,dedução pela nomenclatura,,
+Elgin,ELG5[7-9]\d|M16N,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células,dedução pela potência,,
+Elgin,ELG5[3-6]\d,Mono PERC,inferido (potência),530-560 W em 144 meias-células,dedução pela potência,,
+Amerisolar,AS7M144\w*5[7-9]\d,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células,dedução pela potência,,
+Amerisolar,AS6P,Policristalino,inferido,6P = poly,dedução pela nomenclatura,,
+Amerisolar,AS\dM,Mono PERC,inferido,6M/7M PERC (AS-6M PERC no próprio texto),dedução pela nomenclatura,,
+Resun,RS8I5[7-9]\dM,N-type TOPCon,inferido (potência),570 W ou mais em 144 meias-células,dedução pela potência,,
+Resun,RS8I,Mono PERC,inferido (potência),545-560 W em 144 meias-células,dedução pela potência,,
+Resun,\d{3}P,Policristalino,inferido,sufixo P,dedução pela nomenclatura,,
+Phono Solar,PS\d{3}M,Mono PERC,inferido,PSxxxM 400-550 W,dedução pela nomenclatura,,
+Luxen Solar,\d{3}N,N-type TOPCon,inferido,sufixo N = n-type,dedução pela nomenclatura,,
+Luxen Solar,\d{3}M,Mono PERC,inferido,sufixo M = mono,dedução pela nomenclatura,,
+Hanwha Q Cells,QPOWER,Policristalino,confirmado,Q.POWER = poly,página do fabricante,https://datasheets.globalspec.com/ds/6030/HanwhaQCells,2026-10-19
+Hanwha Q Cells,QPEAK,Mono PERC,confirmado,Q.PEAK (Q.ANTUM PERC),notícia do setor,https://pv-magazine-usa.com/press-releases/hanwha-q-cells-to-introduce-high-end-q-antum-solar-module-series-q-peak-duo-with-half-cell-technology-at-spi-2017/,2026-10-19
+Gokin Solar,HT,N-type TOPCon,confirmado,FLAMINGO 72HTBD N-type TOPCon,ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/gokin-gk-1-72htbd-600m-575-605-1500v-black-frame-53277,2026-10-19
+AE Solar,HM\d|MD\d*,Mono PERC,inferido,HM6L/MD mono half-cell,dedução pela nomenclatura,,
+OSDA,MHD,N-type TOPCon,confirmado,ODA580-36V-MHD e ODA620-33VMHDRz = n-type TOPCon bifacial,ficha técnica ou anúncio (distribuidor),https://www.solartraders.com/fr/products/module/osda-solar-oda590-36v-mhd-bif-dg,2026-10-19
+Era Solar,ERARC66H,N-type TOPCon,inferido (potência),RC-66HC/HD 610-650 W,dedução pela potência,,
+Pulling Energy,SNG|DNG,N-type TOPCon,inferido,N = n-type (G12R),dedução pela nomenclatura,,
+WEG,MBN,N-type TOPCon,inferido (potência),H66MBN 580-620 W em 132 células,dedução pela potência,,
+TCL Solar,ND\d,N-type TOPCon,inferido,ND = n-type,dedução pela nomenclatura,,
+JINERGY,JNBN,N-type TOPCon,inferido,N = n-type; 590 W em 144 meias-células,dedução pela nomenclatura,,
+Seraphim,BTC,N-type TOPCon,inferido,BTC = bifacial TOPCon,dedução pela nomenclatura,,
+Canadian Solar,CS7N7\d\d,N-type TOPCon,inferido (potência),700 W passa do teto do PERC no CS7N (665 W),dedução pela potência,,
+Sunova,SS5[7-9]\d72MDH$|SS6\d{4}MDH,N-type TOPCon,confirmado,Tangra M Pro 72MDH 570-590 W = n-type,ficha técnica ou anúncio (distribuidor),https://configurator.sun.store/en/product/sunova-tangra-m-pro-570-590w-ss-bg570-72mdh(t)-silver-frame-29754,2026-10-19
+*,TOPCON,N-type TOPCon,confirmado,texto do modelo diz TOPCon,texto do cadastro,,
+*,HJT,HJT,confirmado,texto do modelo diz HJT,texto do cadastro,,
+*,PERC,Mono PERC,confirmado,texto do modelo diz PERC,texto do cadastro,,
+*,POLI|POLY,Policristalino,confirmado,texto do modelo diz poli,texto do cadastro,,
