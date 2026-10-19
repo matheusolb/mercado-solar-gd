@@ -1,4 +1,4 @@
-"""Roda o pipeline inteiro em sequencia: mapeamento de marcas -> agregado -> payload
+"""Roda o pipeline inteiro em sequencia: download da ANEEL (se houver versao nova) -> mapeamento de marcas -> agregado -> payload
 -> dashboard HTML. Um comando em vez de quatro (ou cinco, com --sqlite).
 
 Uso (rodar a partir da pasta scripts/):
@@ -19,6 +19,7 @@ import time
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
+import baixar_aneel
 import exportar_sqlite
 import gerar_dashboard_html
 import montar_agregado_marcas
@@ -38,6 +39,13 @@ def rodar_etapa(numero: str, nome: str, funcao, *args) -> None:
     print(f"-- {nome}: concluido em {time.time() - inicio:.0f}s")
 
 
+def baixar() -> None:
+    try:
+        baixar_aneel.main()
+    except (OSError, RuntimeError) as e:  # sem internet ou download cortado: segue com os arquivos da pasta
+        print(f"  AVISO: download da ANEEL falhou ({e}); usando os arquivos que ja estao em dados/raw")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--sqlite", action="store_true",
@@ -49,6 +57,7 @@ def main():
     modo_mapa = ["--modo", "reclassificar_outros"] if args.reclassificar_outros else []
 
     total_inicio = time.time()
+    rodar_etapa("0/4", "Download da ANEEL (so se houver versao nova)", baixar)
     rodar_etapa("1/4", "Mapeamento de marcas", montar_mapa_marcas.main, modo_mapa)
     rodar_etapa("2/4", "Agregacao", montar_agregado_marcas.main)
     rodar_etapa("3/4", "Payload do dashboard", montar_payload_dashboard.main)

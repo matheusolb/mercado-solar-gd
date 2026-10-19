@@ -57,7 +57,9 @@ pip install -r requirements.txt
 Baixe os dois arquivos parquet do [portal de dados abertos da
 ANEEL](https://dadosabertos.aneel.gov.br/dataset/relacao-de-empreendimentos-de-geracao-distribuida)
 (recursos "empreendimento-geracao-distribuida" e
-"empreendimento-gd-informacoes-tecnicas-fotovoltaica") e coloque em `dados/raw/`.
+"empreendimento-gd-informacoes-tecnicas-fotovoltaica") ficam em `dados/raw/`. O
+`atualizar_tudo.py` baixa os dois sozinho (`baixar_aneel.py`) quando a data de última
+atualização publicada pela ANEEL muda; a versão baixada fica em `dados/raw/versao_aneel.json`.
 
 Depois, na pasta `scripts/`, o jeito mais simples é rodar tudo de uma vez:
 
