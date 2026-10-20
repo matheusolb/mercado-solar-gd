@@ -45,5 +45,5 @@ ABB/FIMER,PVS|TRIO|UNO|PRO,String,confirmado,PVS/TRIO/UNO on-grid,ficha técnica
 SolarEdge,SE\d,String,confirmado,SE = string com otimizador,ficha técnica ou anúncio (distribuidor),https://solarproof.com.au/datasheets/inv_datasheet_se-single-phase-HD-wave-inverter-datasheet-aus.pdf,2026-10-19
 Chint,\d,String,inferido,CPS on-grid,dedução pela nomenclatura,,
 TBEA,TS\d{3}KTL,String,inferido,TS330KTL-HV: KTL = string sem transformador (linha de usina),dedução pela nomenclatura,,
-Livoltek,GT[13],String,inferido,GT1/GT3 = linha grid-tie (a híbrida da Livoltek é a Hyper),dedução pela nomenclatura,,
+Livoltek,GT[13],String,confirmado,GT1/GT3 = linha on-grid (a híbrida da Livoltek é a Hyper),ficha técnica ou anúncio (distribuidor),https://sun.store/en/product/livoltek-gt1-6kd2-30033,2026-10-20
 Fronius,^SEINV,String,inferido,SE ...K cadastrado como Fronius = SolarEdge trifásico (string com otimizador),dedução pela nomenclatura,,
