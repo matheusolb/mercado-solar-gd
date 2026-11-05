@@ -79,9 +79,13 @@ def carregar_base_geografica() -> pd.DataFrame:
 def unir_bases(tecnica: pd.DataFrame, geografica: pd.DataFrame) -> pd.DataFrame:
     unido = tecnica.merge(geografica, how="inner",
                            left_on="CodGeracaoDistribuida", right_on="CodEmpreendimento")
-    assert len(unido) == len(tecnica), (
-        f"join deveria ser 1:1 mas {len(tecnica)} linhas tecnicas -> {len(unido)} linhas unidas"
-    )
+    # As duas bases da ANEEL saem em datas diferentes: entre uma e outra, usinas saem do cadastro
+    # (05/11/2026: 6.184 de 4,67 mi, 0,13%). Ficam de fora; acima de 1% o arquivo esta quebrado.
+    assert len(unido) <= len(tecnica), f"join duplicou linhas: {len(tecnica)} tecnicas -> {len(unido)} unidas"
+    perdidas = len(tecnica) - len(unido)
+    assert perdidas <= 0.01 * len(tecnica), f"{perdidas} linhas tecnicas sem cadastro (mais de 1%)"
+    if perdidas:
+        print(f"  AVISO: {perdidas:,} linhas tecnicas sem cadastro na base geografica (sairam da ANEEL); ficam de fora")
     return unido
 
 
